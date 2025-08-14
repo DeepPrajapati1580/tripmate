@@ -1,3 +1,4 @@
+// Project-level Gradle build configuration in Kotlin DSL
 
 allprojects {
     repositories {
@@ -6,22 +7,27 @@ allprojects {
     }
 }
 
+// ✅ Flutter custom build directory
 val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
-rootProject.layout.buildDirectory.value(newBuildDir)
+rootProject.layout.buildDirectory.set(newBuildDir)
 
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
-}
-subprojects {
-    project.evaluationDependsOn(":app")
+    project.layout.buildDirectory.set(newSubprojectBuildDir)
 }
 
+subprojects {
+    afterEvaluate {
+        extensions.findByType<com.android.build.gradle.BaseExtension>()?.apply {
+            compileSdkVersion(34) // match your Flutter compileSdkVersion
+        }
+    }
+}
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
-dependencies {
-    classpath 'com.google.gms:google-services:4.4.2'
+
+// ✅ Plugins in Kotlin DSL format (replaces Groovy classpath/apply)
+plugins {
+    id("com.google.gms.google-services") apply false
 }
-apply plugin: 'com.google.gms.google-services'
-    

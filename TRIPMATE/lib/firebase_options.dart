@@ -65,4 +65,5 @@ class DefaultFirebaseOptions {
     projectId: 'tripmate-fa51a',
     storageBucket: 'tripmate-fa51a.firebasestorage.app',
   );
+
 }
