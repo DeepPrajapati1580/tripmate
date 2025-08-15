@@ -62,7 +62,13 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/TripMate_Logo.png
+    - assets/images/user.jpg
+    - assets/images/paris.jpg
+    - assets/images/london.jpg
+    - assets/images/maldives.jpg
+    - assets/images/dubai.jpg
+    - assets/images/bali.jpg
+
 
 flutter_icons:
   android: true

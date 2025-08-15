@@ -86,7 +86,7 @@ class AuthWrapper extends StatelessWidget {
             // route by role
             if (role == 'admin') return const AdminHome();
             if (role == 'travel_agent') return const AgentHome();
-            return const CustomerHome();
+            return const HomePage();
           },
         );
       },
