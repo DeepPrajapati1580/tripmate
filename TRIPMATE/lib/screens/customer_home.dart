@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'trips/trip_list_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -58,7 +59,13 @@ class HomePage extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _quickAction(Icons.flight_takeoff, "Plan Trip"),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const TripListPage()),
+                    ),
+                    child: _quickAction(Icons.flight_takeoff, "Plan Trip"),
+                  ),
                   _quickAction(Icons.hotel, "Bookings"),
                   _quickAction(Icons.map, "Map"),
                   _quickAction(Icons.account_circle, "Profile"),
@@ -197,10 +204,7 @@ class HomePage extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           gradient: const LinearGradient(
-            colors: [
-              Color.fromRGBO(0, 0, 0, 0.6),
-              Colors.transparent,
-            ],
+            colors: [Color.fromRGBO(0, 0, 0, 0.6), Colors.transparent],
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
           ),

@@ -20,7 +20,6 @@ ThemeData buildAppTheme() {
       primary: AppColors.primary,
       secondary: AppColors.accent,
       onPrimary: Colors.white,
-      background: AppColors.bg,
       surface: Colors.white,
     ),
     appBarTheme: AppBarTheme(
