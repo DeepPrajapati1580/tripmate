@@ -1,49 +1,105 @@
+// lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
-import '../../providers/user_provider.dart';
-import '../../widgets/custom_input.dart';
-import '../../widgets/custom_button.dart';
+import '../../models/user_model.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    TextEditingController emailCtrl = TextEditingController();
-    TextEditingController passCtrl = TextEditingController();
+  State<LoginScreen> createState() => _LoginScreenState();
+}
 
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  String _selectedRole = 'customer';
+  bool _loading = false;
+  String? _error;
+
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final user = await AuthService.signInWithRole(
+        _emailCtrl.text.trim(),
+        _passwordCtrl.text.trim(),
+        _selectedRole,
+      );
+
+      // ✅ Navigate based on role
+      if (!mounted) return;
+      if (user.role == 'customer') {
+        Navigator.pushReplacementNamed(context, '/customerHome');
+      } else if (user.role == 'travel_agent') {
+        Navigator.pushReplacementNamed(context, '/agentDashboard');
+      } else if (user.role == 'admin') {
+        Navigator.pushReplacementNamed(context, '/adminPanel');
+      }
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Login")),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            CustomInput(controller: emailCtrl, hintText: "Enter Email"),
-            const SizedBox(height: 10),
-            CustomInput(controller: passCtrl, hintText: "Enter Password", obscureText: true),
-            const SizedBox(height: 20),
-            CustomButton(
-              text: "Login",
-              onPressed: () async {
-                final user = await AuthService().login(emailCtrl.text, passCtrl.text);
-                if (user != null) {
-                  context.read<UserProvider>().setUser(user);
-                  if (user.role == "customer") {
-                    Navigator.pushReplacementNamed(context, '/customerHome');
-                  } else if (user.role == "agent") {
-                    Navigator.pushReplacementNamed(context, '/agentHome');
-                  } else {
-                    Navigator.pushReplacementNamed(context, '/adminHome');
-                  }
-                }
-              },
-            ),
-            TextButton(
-              onPressed: () => Navigator.pushNamed(context, '/register'),
-              child: const Text("Don't have an account? Register"),
-            )
-          ],
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: _emailCtrl,
+                decoration: const InputDecoration(labelText: "Email"),
+                validator: (v) =>
+                v == null || v.isEmpty ? "Enter email" : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _passwordCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: "Password"),
+                validator: (v) =>
+                v == null || v.isEmpty ? "Enter password" : null,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _selectedRole,
+                decoration: const InputDecoration(labelText: "Role"),
+                items: const [
+                  DropdownMenuItem(value: 'customer', child: Text("Customer")),
+                  DropdownMenuItem(
+                      value: 'travel_agent', child: Text("Travel Agent")),
+                  DropdownMenuItem(value: 'admin', child: Text("Admin")),
+                ],
+                onChanged: (val) => setState(() => _selectedRole = val!),
+              ),
+              const SizedBox(height: 20),
+              if (_error != null)
+                Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _loading ? null : _login,
+                child: _loading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text("Login"),
+              ),
+            ],
+          ),
         ),
       ),
     );

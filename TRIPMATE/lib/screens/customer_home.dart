@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
-import 'trips/trip_list_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class CustomerHome extends StatelessWidget {
+  const CustomerHome({super.key});
+
+  void _logout(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+    Navigator.pushReplacementNamed(context, '/login');
+  }
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -16,41 +24,67 @@ class HomePage extends StatelessWidget {
         centerTitle: true,
         backgroundColor: Colors.teal.shade900,
         actions: [
-          IconButton(icon: const Icon(Icons.notifications), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: "Logout",
+            onPressed: () => _logout(context),
+          ),
         ],
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
             // Welcome Section
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundImage: AssetImage('assets/images/user.jpg'),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        "Welcome Back!",
-                        style: TextStyle(color: Colors.white70, fontSize: 16),
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user?.uid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                final userData = snapshot.data!.data() as Map<String, dynamic>?;
+
+                return Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 30,
+                        backgroundImage: AssetImage('assets/images/user.jpg'),
                       ),
-                      Text(
-                        "Deep",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Welcome Back!",
+                            style:
+                            TextStyle(color: Colors.white70, fontSize: 16),
+                          ),
+                          Text(
+                            userData?['name'] ?? "Traveler",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
 
             // Quick Actions
@@ -59,16 +93,10 @@ class HomePage extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TripListPage()),
-                    ),
-                    child: _quickAction(Icons.flight_takeoff, "Plan Trip"),
-                  ),
-                  _quickAction(Icons.hotel, "Bookings"),
-                  _quickAction(Icons.map, "Map"),
-                  _quickAction(Icons.account_circle, "Profile"),
+                  _quickAction(Icons.flight_takeoff, "Plan Trip", () {}),
+                  _quickAction(Icons.hotel, "Bookings", () {}),
+                  _quickAction(Icons.map, "Map", () {}),
+                  _quickAction(Icons.account_circle, "Profile", () {}),
                 ],
               ),
             ),
@@ -77,31 +105,84 @@ class HomePage extends StatelessWidget {
 
             // Upcoming Trips
             _sectionTitle("Upcoming Trips"),
-            _tripCard(
-              image: "assets/images/paris.jpg",
-              title: "Paris Getaway",
-              date: "20 Aug - 25 Aug",
-              price: "\$1200",
-            ),
-            _tripCard(
-              image: "assets/images/london.jpg",
-              title: "London Adventure",
-              date: "5 Sep - 12 Sep",
-              price: "\$1500",
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('trips')
+                  .where('userId', isEqualTo: user?.uid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Text(
+                      "No trips available.",
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  );
+                }
+
+                final trips = snapshot.data!.docs;
+
+                return Column(
+                  children: trips.map((trip) {
+                    final data = trip.data() as Map<String, dynamic>;
+                    return _tripCard(
+                      image: "assets/images/travel.jpg",
+                      title: "${data['source']} → ${data['destination']}",
+                      date: data['date'] ?? "Not specified",
+                      price: "₹${data['price']}",
+                    );
+                  }).toList(),
+                );
+              },
             ),
 
             const SizedBox(height: 20),
 
             // Popular Destinations
             _sectionTitle("Popular Destinations"),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _destinationCard("assets/images/maldives.jpg", "Maldives"),
-                  _destinationCard("assets/images/dubai.jpg", "Dubai"),
-                  _destinationCard("assets/images/bali.jpg", "Bali"),
-                ],
+            SizedBox(
+              height: 180,
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('destinations')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Text(
+                        "No destinations available.",
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    );
+                  }
+
+                  final destinations = snapshot.data!.docs;
+
+                  return ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: destinations.map((dest) {
+                      final data = dest.data() as Map<String, dynamic>;
+                      return _destinationCard(
+                        data['imageUrl'] ?? "assets/images/travel.jpg",
+                        data['name'] ?? "Unknown",
+                      );
+                    }).toList(),
+                  );
+                },
               ),
             ),
           ],
@@ -110,19 +191,24 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  static Widget _quickAction(IconData icon, String label) {
-    return Column(
-      children: [
-        CircleAvatar(
-          backgroundColor: Colors.teal,
-          child: Icon(icon, color: Colors.white),
-        ),
-        const SizedBox(height: 6),
-        Text(label, style: const TextStyle(color: Colors.white70)),
-      ],
+  // Quick Actions
+  static Widget _quickAction(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          CircleAvatar(
+            backgroundColor: Colors.teal,
+            child: Icon(icon, color: Colors.white),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: const TextStyle(color: Colors.white70)),
+        ],
+      ),
     );
   }
 
+  // Section Title
   static Widget _sectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -141,6 +227,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  // Trip Card
   static Widget _tripCard({
     required String image,
     required String title,
@@ -189,6 +276,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  // Destination Card
   static Widget _destinationCard(String image, String name) {
     return Container(
       margin: const EdgeInsets.only(left: 16),
@@ -196,7 +284,7 @@ class HomePage extends StatelessWidget {
       height: 180,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        image: DecorationImage(image: AssetImage(image), fit: BoxFit.cover),
+        image: DecorationImage(image: NetworkImage(image), fit: BoxFit.cover),
       ),
       child: Container(
         alignment: Alignment.bottomLeft,

@@ -1,5 +1,7 @@
+// lib/screens/auth_page.dart
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../models/user_model.dart'; // import AppUser
 
 class AuthPage extends StatefulWidget {
   final String role;
@@ -25,55 +27,60 @@ class _AuthPageState extends State<AuthPage> {
     isLogin = !widget.isSignupFlow;
   }
 
-  void _show(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  void _show(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
-// inside _AuthPageState in lib/screens/auth_page.dart
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
     _name.dispose();
+    _agency.dispose();
     super.dispose();
   }
-Future<void> _submit() async {
-  if (!_formKey.currentState!.validate()) return;
-  setState(() => _loading = true);
 
-  try {
-    if (isLogin) {
-      final result = await AuthService.signInWithRole(_email.text.trim(), _password.text.trim(), widget.role);
-      // signed in successfully
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Logged in as ${result['role'] ?? 'user'}')));
-      }
-      // if result['approved'] == false, AuthWrapper will show PendingApprovalPage automatically
-    } else {
-      final extra = widget.role == 'travel_agent' ? {'agencyName': _agency.text.trim()} : null;
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _loading = true);
 
-      await AuthService.signUp(
-        email: _email.text.trim(),
-        password: _password.text.trim(),
-        role: widget.role,
-        displayName: _name.text.trim(),
-        extraFields: extra,
-      );
+    try {
+      if (isLogin) {
+        final AppUser user = await AuthService.signInWithRole(
+          _email.text.trim(),
+          _password.text.trim(),
+          widget.role,
+        );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(widget.role == 'customer'
+        if (mounted) {
+          _show('Logged in as ${user.role}');
+        }
+        // If user.approved == false, your AuthWrapper will handle routing to pending page
+      } else {
+        final extra = widget.role == 'travel_agent'
+            ? {'agencyName': _agency.text.trim()}
+            : null;
+
+        await AuthService.signUp(
+          email: _email.text.trim(),
+          password: _password.text.trim(),
+          role: widget.role,
+          displayName: _name.text.trim(),
+          extraFields: extra,
+        );
+
+        if (mounted) {
+          _show(widget.role == 'customer'
               ? 'Signup successful — you are logged in'
-              : 'Signup successful — pending admin approval'),
-        ));
+              : 'Signup successful — pending admin approval');
+        }
+        // AuthWrapper will pick up Firestore doc and route accordingly
       }
-      // AuthWrapper will pick up Firestore doc and route accordingly
+    } catch (e) {
+      if (mounted) _show(e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-  } catch (e) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-  } finally {
-    if (mounted) setState(() => _loading = false);
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +92,9 @@ Future<void> _submit() async {
         child: ListView(
           children: [
             const SizedBox(height: 8),
-            Center(child: Image.asset('assets/images/TripMate_Logo.png', height: 82)),
+            Center(
+              child: Image.asset('assets/images/TripMate_Logo.png', height: 82),
+            ),
             const SizedBox(height: 12),
             Card(
               child: Padding(
@@ -95,31 +104,51 @@ Future<void> _submit() async {
                   child: Column(
                     children: [
                       if (!isLogin)
-                        TextFormField(controller: _name, decoration: const InputDecoration(labelText: 'Full name')),
+                        TextFormField(
+                          controller: _name,
+                          decoration:
+                          const InputDecoration(labelText: 'Full name'),
+                        ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _email,
-                        decoration: const InputDecoration(labelText: 'Email'),
+                        decoration:
+                        const InputDecoration(labelText: 'Email'),
                         keyboardType: TextInputType.emailAddress,
-                        validator: (v) => v != null && v.contains('@') ? null : 'Enter a valid email',
+                        validator: (v) => v != null && v.contains('@')
+                            ? null
+                            : 'Enter a valid email',
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _password,
-                        decoration: const InputDecoration(labelText: 'Password'),
+                        decoration:
+                        const InputDecoration(labelText: 'Password'),
                         obscureText: true,
-                        validator: (v) => v != null && v.length >= 6 ? null : 'Password min 6 chars',
+                        validator: (v) => v != null && v.length >= 6
+                            ? null
+                            : 'Password min 6 chars',
                       ),
                       const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: _loading ? null : _submit,
-                          child: _loading ? const CircularProgressIndicator(color: Colors.white) : Text(isLogin ? 'Login' : 'Create account'),
+                          child: _loading
+                              ? const CircularProgressIndicator(
+                            color: Colors.white,
+                          )
+                              : Text(isLogin ? 'Login' : 'Create account'),
                         ),
                       ),
                       const SizedBox(height: 8),
-                      TextButton(onPressed: () => setState(() => isLogin = !isLogin), child: Text(isLogin ? 'Create new account' : 'Already have an account? Login')),
+                      TextButton(
+                        onPressed: () =>
+                            setState(() => isLogin = !isLogin),
+                        child: Text(isLogin
+                            ? 'Create new account'
+                            : 'Already have an account? Login'),
+                      ),
                       TextButton(
                         onPressed: () {
                           Navigator.pushNamed(context, '/reset-password');

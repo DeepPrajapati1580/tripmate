@@ -1,84 +1,77 @@
+// lib/models/booking.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Enum for booking status
+enum BookingStatus {
+  pending,
+  paid,
+  cancelled,
+}
+
+/// Booking model
 class Booking {
   final String id;
+  final String tripPackageId;
   final String userId;
-  final String tripId;
-  final int seatsBooked;
-  final int totalAmount; // in minor units
-  final String status; // pending / confirmed / cancelled
+  final int seats;
+  final int amount;
+  final BookingStatus status;
+  final String? razorpayOrderId;
+  final String? razorpayPaymentId;
+  final String? razorpaySignature;
   final DateTime createdAt;
+  final DateTime? paidAt;
 
   Booking({
     required this.id,
+    required this.tripPackageId,
     required this.userId,
-    required this.tripId,
-    required this.seatsBooked,
-    required this.totalAmount,
+    required this.seats,
+    required this.amount,
     required this.status,
+    this.razorpayOrderId,
+    this.razorpayPaymentId,
+    this.razorpaySignature,
     required this.createdAt,
+    this.paidAt,
   });
 
-  Booking copyWith({
-    String? id,
-    String? userId,
-    String? tripId,
-    int? seatsBooked,
-    int? totalAmount,
-    String? status,
-    DateTime? createdAt,
-  }) {
-    return Booking(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      tripId: tripId ?? this.tripId,
-      seatsBooked: seatsBooked ?? this.seatsBooked,
-      totalAmount: totalAmount ?? this.totalAmount,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-    );
-  }
-
+  /// Convert Booking -> Map (Firestore)
   Map<String, dynamic> toMap() {
     return {
+      'tripPackageId': tripPackageId,
       'userId': userId,
-      'tripId': tripId,
-      'seatsBooked': seatsBooked,
-      'totalAmount': totalAmount,
-      'status': status,
+      'seats': seats,
+      'amount': amount,
+      'status': status.name,
+      'razorpayOrderId': razorpayOrderId,
+      'razorpayPaymentId': razorpayPaymentId,
+      'razorpaySignature': razorpaySignature,
       'createdAt': Timestamp.fromDate(createdAt),
+      'paidAt': paidAt != null ? Timestamp.fromDate(paidAt!) : null,
     };
   }
 
+  /// Convert Firestore doc -> Booking
   static Booking fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     return Booking(
       id: doc.id,
-      userId: data['userId'] ?? '',
-      tripId: data['tripId'] ?? '',
-      seatsBooked: (data['seatsBooked'] as num?)?.toInt() ?? 0,
-      totalAmount: (data['totalAmount'] as num?)?.toInt() ?? 0,
-      status: data['status'] ?? 'pending',
+      tripPackageId: data['tripPackageId'] as String? ?? '',
+      userId: data['userId'] as String? ?? '',
+      seats: (data['seats'] as num?)?.toInt() ?? 0,
+      amount: (data['amount'] as num?)?.toInt() ?? 0,
+      status: BookingStatus.values.firstWhere(
+            (e) => e.name == (data['status'] as String? ?? 'pending'),
+        orElse: () => BookingStatus.pending,
+      ),
+      razorpayOrderId: data['razorpayOrderId'] as String?,
+      razorpayPaymentId: data['razorpayPaymentId'] as String?,
+      razorpaySignature: data['razorpaySignature'] as String?,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+      paidAt: data['paidAt'] != null
+          ? (data['paidAt'] as Timestamp).toDate()
+          : null,
     );
   }
-
-  static Booking fromMap(String id, Map<String, dynamic> data) {
-    return Booking(
-      id: id,
-      userId: data['userId'] ?? '',
-      tripId: data['tripId'] ?? '',
-      seatsBooked: (data['seatsBooked'] as num?)?.toInt() ?? 0,
-      totalAmount: (data['totalAmount'] as num?)?.toInt() ?? 0,
-      status: data['status'] ?? 'pending',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-    );
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) || (other is Booking && id == other.id);
-
-  @override
-  int get hashCode => id.hashCode;
 }

@@ -10,6 +10,7 @@ import 'screens/customer_home.dart';
 import 'screens/agent_home.dart';
 import 'screens/admin_home.dart';
 import 'screens/auth_page.dart';
+import 'routes.dart';
 
 import 'theme.dart';
 import 'screens/reset_password_page.dart';
@@ -86,7 +87,7 @@ class AuthWrapper extends StatelessWidget {
             // route by role
             if (role == 'admin') return const AdminHome();
             if (role == 'travel_agent') return const AgentHome();
-            return const HomePage();
+            return const CustomerHome();
           },
         );
       },
