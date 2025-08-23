@@ -1,31 +1,25 @@
+// lib/widgets/trip_card.dart
 import 'package:flutter/material.dart';
-import '../models/trip_model.dart';
+import '../models/trip_package.dart';
+import 'package:intl/intl.dart';
 
 class TripCard extends StatelessWidget {
   final TripPackage trip;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
-  const TripCard({super.key, required this.trip, required this.onTap});
+  const TripCard({super.key, required this.trip, this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final df = DateFormat.yMMMd();
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ListTile(
+        leading: trip.imageUrl != null ? Image.network(trip.imageUrl!, width: 56, height: 56, fit: BoxFit.cover) : const Icon(Icons.flight_takeoff),
+        title: Text(trip.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text('${trip.destination}\n${df.format(trip.startDate)} → ${df.format(trip.endDate)} • ₹${trip.price}'),
+        isThreeLine: true,
         onTap: onTap,
-        child: Column(
-          children: [
-            if (trip.imageUrl != null)
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: Image.network(trip.imageUrl!, height: 150, width: double.infinity, fit: BoxFit.cover),
-              ),
-            ListTile(
-              title: Text(trip.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text("${trip.destination} • ₹${trip.pricePerSeat ~/ 100}"),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -1,51 +1,39 @@
+// lib/services/trip_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/trip_package.dart';
 
 class TripService {
-  static final CollectionReference<Map<String, dynamic>> _trips =
-      FirebaseFirestore.instance.collection('trips');
+  static final _col = FirebaseFirestore.instance.collection('trip_packages');
 
-  static Future<String> createTrip({
-    required String title,
-    required String description,
-    required String destination,
-    required DateTime startDate,
-    required DateTime endDate,
-    required int pricePerSeat,
-    required int capacity,
-    String? imageUrl,
-  }) async {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-    final doc = await _trips.add({
-      'title': title,
-      'description': description,
-      'destination': destination,
-      'startDate': Timestamp.fromDate(startDate),
-      'endDate': Timestamp.fromDate(endDate),
-      'pricePerSeat': pricePerSeat,
-      'capacity': capacity,
-      'createdByUserId': uid,
-      'createdAt': FieldValue.serverTimestamp(),
-      'imageUrl': imageUrl,
-      'bookedSeats': 0,
-    });
-    return doc.id;
-  }
+  /// Stream all packages.
+  /// - onlyUpcoming: whether to show only trips that haven't ended yet.
+  /// - serverFilter: if true, tries to apply `where('endDate', >= now)` on server (may require composite index).
+  /// If you want zero index problems, use onlyUpcoming: true, serverFilter: false (client filter).
+  static Stream<List<TripPackage>> streamAll({bool onlyUpcoming = false, bool serverFilter = false}) {
+    if (onlyUpcoming && serverFilter) {
+      // Server-side filter (may require composite index)
+      final q = _col
+          .where('endDate', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now()))
+          .orderBy('createdAt', descending: true);
+      return q.snapshots().map((snap) => snap.docs.map((d) => TripPackage.fromDoc(d as DocumentSnapshot<Map<String, dynamic>>)).toList());
+    }
 
-  static Stream<List<TripPackage>> streamAllTrips() {
-    return _trips
-        .orderBy('startDate')
+    // Simple server ordering only (no server range filter that triggers composite index).
+    return _col
+        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((q) => q.docs.map((d) => TripPackage.fromDoc(d)).toList());
+        .map((snap) {
+          final list = snap.docs.map((d) => TripPackage.fromDoc(d as DocumentSnapshot<Map<String, dynamic>>)).toList();
+          if (!onlyUpcoming) return list;
+          // client-side filter
+          final now = DateTime.now();
+          return list.where((t) => t.endDate.isAfter(now) || t.endDate.isAtSameMomentAs(now)).toList();
+        });
   }
 
-  static Future<void> updateBookedSeats({
-    required String tripId,
-    required int delta,
-  }) async {
-    await _trips.doc(tripId).update({
-      'bookedSeats': FieldValue.increment(delta),
-    });
+  /// Stream packages created by a specific agent
+  static Stream<List<TripPackage>> streamByAgent(String uid) {
+    final q = _col.where('createdBy', isEqualTo: uid).orderBy('createdAt', descending: true);
+    return q.snapshots().map((snap) => snap.docs.map((d) => TripPackage.fromDoc(d as DocumentSnapshot<Map<String, dynamic>>)).toList());
   }
 }

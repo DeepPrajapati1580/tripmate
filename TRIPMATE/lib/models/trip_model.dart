@@ -7,11 +7,12 @@ class TripPackage {
   final String destination;
   final DateTime startDate;
   final DateTime endDate;
-  final int pricePerSeat; // in paise or cents
+  /// Stored as rupees (int). If your DB has `pricePerSeat`, we fallback to it.
+  final int price;
   final int capacity;
   final int bookedSeats;
-  final String createdByUserId;
-  final DateTime createdAt;
+  final String createdBy;            // agent uid
+  final DateTime? createdAt;         // may be null if very fresh write
   final String? imageUrl;
 
   TripPackage({
@@ -21,43 +22,13 @@ class TripPackage {
     required this.destination,
     required this.startDate,
     required this.endDate,
-    required this.pricePerSeat,
+    required this.price,
     required this.capacity,
     required this.bookedSeats,
-    required this.createdByUserId,
-    required this.createdAt,
+    required this.createdBy,
+    this.createdAt,
     this.imageUrl,
   });
-
-  TripPackage copyWith({
-    String? id,
-    String? title,
-    String? description,
-    String? destination,
-    DateTime? startDate,
-    DateTime? endDate,
-    int? pricePerSeat,
-    int? capacity,
-    int? bookedSeats,
-    String? createdByUserId,
-    DateTime? createdAt,
-    String? imageUrl,
-  }) {
-    return TripPackage(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      destination: destination ?? this.destination,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
-      pricePerSeat: pricePerSeat ?? this.pricePerSeat,
-      capacity: capacity ?? this.capacity,
-      bookedSeats: bookedSeats ?? this.bookedSeats,
-      createdByUserId: createdByUserId ?? this.createdByUserId,
-      createdAt: createdAt ?? this.createdAt,
-      imageUrl: imageUrl ?? this.imageUrl,
-    );
-  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -66,57 +37,42 @@ class TripPackage {
       'destination': destination,
       'startDate': Timestamp.fromDate(startDate),
       'endDate': Timestamp.fromDate(endDate),
-      'pricePerSeat': pricePerSeat,
+      'price': price,
       'capacity': capacity,
       'bookedSeats': bookedSeats,
-      'createdByUserId': createdByUserId,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'createdBy': createdBy,
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'imageUrl': imageUrl,
     };
   }
 
   static TripPackage fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
+    final data = doc.data() ?? {};
+    final tsStart = data['startDate'];
+    final tsEnd = data['endDate'];
+    final tsCreated = data['createdAt'];
+
+    final priceFromEither =
+        (data['price'] as num?)?.toInt() ??
+        (data['pricePerSeat'] as num?)?.toInt() ??
+        0;
+
     return TripPackage(
       id: doc.id,
-      title: data['title'] ?? '',
-      description: data['description'] ?? '',
-      destination: data['destination'] ?? '',
-      startDate: (data['startDate'] as Timestamp).toDate(),
-      endDate: (data['endDate'] as Timestamp).toDate(),
-      pricePerSeat: (data['pricePerSeat'] as num?)?.toInt() ?? 0,
+      title: (data['title'] ?? '').toString(),
+      description: (data['description'] ?? '').toString(),
+      destination: (data['destination'] ?? '').toString(),
+      startDate: tsStart is Timestamp ? tsStart.toDate() : DateTime.now(),
+      endDate: tsEnd is Timestamp ? tsEnd.toDate() : DateTime.now(),
+      price: priceFromEither,
       capacity: (data['capacity'] as num?)?.toInt() ?? 0,
       bookedSeats: (data['bookedSeats'] as num?)?.toInt() ?? 0,
-      createdByUserId: data['createdByUserId'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      imageUrl: data['imageUrl'],
-    );
-  }
-
-  static TripPackage fromMap(String id, Map<String, dynamic> data) {
-    return TripPackage(
-      id: id,
-      title: data['title'] ?? '',
-      description: data['description'] ?? '',
-      destination: data['destination'] ?? '',
-      startDate: (data['startDate'] as Timestamp).toDate(),
-      endDate: (data['endDate'] as Timestamp).toDate(),
-      pricePerSeat: (data['pricePerSeat'] as num?)?.toInt() ?? 0,
-      capacity: (data['capacity'] as num?)?.toInt() ?? 0,
-      bookedSeats: (data['bookedSeats'] as num?)?.toInt() ?? 0,
-      createdByUserId: data['createdByUserId'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      imageUrl: data['imageUrl'],
+      createdBy: (data['createdBy'] ?? '').toString(),
+      createdAt: tsCreated is Timestamp ? tsCreated.toDate() : null,
+      imageUrl: (data['imageUrl'] as String?),
     );
   }
 
   bool get hasSeatsAvailable => bookedSeats < capacity;
   int get remainingSeats => capacity - bookedSeats;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) || (other is TripPackage && id == other.id);
-
-  @override
-  int get hashCode => id.hashCode;
 }

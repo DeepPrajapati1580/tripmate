@@ -121,10 +121,11 @@ class _TripListPageState extends State<TripListPage> {
       };
       _razorpay.open(options);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Checkout error: $e')));
+      }
     }
   }
 
@@ -136,11 +137,13 @@ class _TripListPageState extends State<TripListPage> {
       body: StreamBuilder<List<TripPackage>>(
         stream: TripService.streamAllTrips(),
         builder: (context, snap) {
-          if (!snap.hasData)
+          if (!snap.hasData) {
             return const Center(child: CircularProgressIndicator());
+          }
           final trips = snap.data!;
-          if (trips.isEmpty)
+          if (trips.isEmpty) {
             return const Center(child: Text('No trips listed yet'));
+          }
           return ListView.builder(
             itemCount: trips.length,
             itemBuilder: (c, i) {
