@@ -10,7 +10,6 @@ import 'screens/customer_home.dart';
 import 'screens/agent_home.dart';
 import 'screens/admin_home.dart';
 import 'screens/auth_page.dart';
-import 'routes.dart';
 
 import 'theme.dart';
 import 'screens/reset_password_page.dart';
@@ -35,7 +34,7 @@ class TripMateApp extends StatelessWidget {
     routes: {
     '/reset-password': (context) => const ResetPasswordPage(),
   },
-      
+
     );
   }
 }

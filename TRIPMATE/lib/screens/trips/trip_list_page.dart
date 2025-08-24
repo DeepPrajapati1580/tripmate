@@ -47,8 +47,6 @@ class _TripListPageState extends State<TripListPage> {
           delta: _pendingSeatsCount,
         );
       }
-      // On successful verification and marking paid, you can increment booked seats
-      // Optionally fetch trip id from booking doc; here we skip for brevity
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -89,7 +87,10 @@ class _TripListPageState extends State<TripListPage> {
       setState(() => _seats = available);
       return;
     }
-    final totalAmount = trip.pricePerSeat * _seats; // paise
+
+    // ✅ FIXED: totalAmount is an int (Razorpay requires int)
+    final totalAmount = (trip.pricePerSeat * _seats).toInt(); // paise
+
     try {
       final order = await PaymentService.createRazorpayOrder(
         amount: totalAmount,
@@ -98,14 +99,15 @@ class _TripListPageState extends State<TripListPage> {
         notes: {'tripId': trip.id},
       );
 
-      final bookingId = await BookingService.createPendingBooking(
+      final booking = await BookingService.createPendingBooking(
         tripPackageId: trip.id,
         seats: _seats,
         amount: totalAmount,
         razorpayOrderId: order['id'] as String,
       );
+
       setState(() {
-        _pendingBookingId = bookingId;
+        _pendingBookingId = booking.id; // ✅ booking.id is String
         _pendingTripId = trip.id;
         _pendingSeatsCount = _seats;
       });
@@ -117,7 +119,6 @@ class _TripListPageState extends State<TripListPage> {
         'name': 'TripMate',
         'description': trip.title,
         'order_id': order['id'],
-        // 'prefill': {'contact': '9123456789', 'email': 'user@example.com'},
       };
       _razorpay.open(options);
     } catch (e) {
@@ -135,7 +136,7 @@ class _TripListPageState extends State<TripListPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Available Trips')),
       body: StreamBuilder<List<TripPackage>>(
-        stream: TripService.streamAllTrips(),
+        stream: TripService.streamAll(),
         builder: (context, snap) {
           if (!snap.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -186,10 +187,9 @@ class _TripListPageState extends State<TripListPage> {
                                 onPressed: available <= 0
                                     ? null
                                     : () => setState(
-                                        () => _seats = _seats > 1
-                                            ? _seats - 1
-                                            : 1,
-                                      ),
+                                      () => _seats =
+                                  _seats > 1 ? _seats - 1 : 1,
+                                ),
                               ),
                               Text('$_seats'),
                               IconButton(
@@ -197,11 +197,9 @@ class _TripListPageState extends State<TripListPage> {
                                 onPressed: available <= 0
                                     ? null
                                     : () => setState(
-                                        () => _seats = (_seats + 1).clamp(
-                                          1,
-                                          available,
-                                        ),
-                                      ),
+                                      () => _seats =
+                                      (_seats + 1).clamp(1, available),
+                                ),
                               ),
                             ],
                           ),
