@@ -1,3 +1,4 @@
+// lib/models/trip_package.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TripPackage {
@@ -7,9 +8,11 @@ class TripPackage {
   final String destination;
   final DateTime startDate;
   final DateTime endDate;
-  final int pricePerSeat;
+  final int price;          // store in INR as integer
   final int capacity;
   final int bookedSeats;
+  final String createdBy;   // uid of agent
+  final DateTime createdAt; // server time when created
   final String? imageUrl;
 
   TripPackage({
@@ -19,30 +22,33 @@ class TripPackage {
     required this.destination,
     required this.startDate,
     required this.endDate,
-    required this.pricePerSeat,
+    required this.price,
     required this.capacity,
     required this.bookedSeats,
+    required this.createdBy,
+    required this.createdAt,
     this.imageUrl,
   });
 
-  /// Convert Firestore → Model
   factory TripPackage.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
+    final d = doc.data() ?? {};
     return TripPackage(
       id: doc.id,
-      title: data['title'] ?? '',
-      description: data['description'] ?? '',
-      destination: data['destination'] ?? '',
-      startDate: (data['startDate'] as Timestamp).toDate(),
-      endDate: (data['endDate'] as Timestamp).toDate(),
-      pricePerSeat: data['pricePerSeat'] ?? 0,
-      capacity: data['capacity'] ?? 0,
-      bookedSeats: data['bookedSeats'] ?? 0,
-      imageUrl: data['imageUrl'],
+      title: d['title'] ?? '',
+      description: d['description'] ?? '',
+      destination: d['destination'] ?? '',
+      startDate: (d['startDate'] as Timestamp).toDate(),
+      endDate: (d['endDate'] as Timestamp).toDate(),
+      price: (d['price'] as num?)?.toInt() ?? 0,
+      capacity: (d['capacity'] as num?)?.toInt() ?? 0,
+      bookedSeats: (d['bookedSeats'] as num?)?.toInt() ?? 0,
+      createdBy: d['createdBy'] ?? '',
+      createdAt: (d['createdAt'] as Timestamp?)?.toDate() ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      imageUrl: d['imageUrl'],
     );
   }
 
-  /// Convert Model → Firestore
   Map<String, dynamic> toMap() {
     return {
       'title': title,
@@ -50,9 +56,11 @@ class TripPackage {
       'destination': destination,
       'startDate': Timestamp.fromDate(startDate),
       'endDate': Timestamp.fromDate(endDate),
-      'pricePerSeat': pricePerSeat,
+      'price': price,
       'capacity': capacity,
       'bookedSeats': bookedSeats,
+      'createdBy': createdBy,
+      'createdAt': Timestamp.fromDate(createdAt),
       'imageUrl': imageUrl,
     };
   }

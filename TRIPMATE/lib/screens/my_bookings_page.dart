@@ -87,8 +87,7 @@ class MyBookingsPage extends StatelessWidget {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (trip.destination != null &&
-                              trip.destination!.isNotEmpty)
+                          if (trip.destination.isNotEmpty)
                             Text("Destination: ${trip.destination}"),
                           Text("Seats: ${booking.seats}"),
                           Text("Total: ₹${booking.amount ~/ 100}"),

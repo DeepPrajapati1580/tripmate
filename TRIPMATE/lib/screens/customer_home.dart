@@ -1,8 +1,9 @@
-// lib/screens/customer/customer_home.dart
+// lib/screens/customer_home.dart
 import 'package:flutter/material.dart';
-import '../services/trip_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/trip_package.dart';
-import 'trip_booking_page.dart';
+import '../services/trip_service.dart';
+import '../widgets/trip_card.dart';
 
 class CustomerHome extends StatelessWidget {
   const CustomerHome({super.key});
@@ -11,72 +12,71 @@ class CustomerHome extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Available Trips"),
-        backgroundColor: Colors.teal,
+        title: const Text(
+          'Available Trips',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushReplacementNamed('/login');
+              }
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<List<TripPackage>>(
-        stream: TripService.streamAll(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+        stream: TripService.streamAll(onlyUpcoming: true),
+        builder: (_, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text("No trips available"));
+          if (snap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Error loading trips:\n${snap.error}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            );
           }
 
-          final trips = snapshot.data!;
-          return ListView.builder(
+          final trips = snap.data ?? [];
+          if (trips.isEmpty) {
+            return const Center(
+              child: Text(
+                'No packages available yet.\nCheck back later!',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16),
+              ),
+            );
+          }
+
+          return GridView.builder(
+            padding: const EdgeInsets.all(12),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2, // 2 cards per row
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.8,
+            ),
             itemCount: trips.length,
-            itemBuilder: (context, index) {
-              final trip = trips[index];
-              return Card(
-                margin: const EdgeInsets.all(12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (trip.imageUrl != null && trip.imageUrl!.isNotEmpty)
-                      ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                        child: Image.network(
-                          trip.imageUrl!,
-                          width: double.infinity,
-                          height: 180,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(trip.title,
-                              style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 6),
-                          if (trip.destination != null)
-                            Text(trip.destination!),
-                          const SizedBox(height: 6),
-                          Text("₹${trip.pricePerSeat ~/ 100} per seat"),
-                          const SizedBox(height: 10),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => TripBookingPage(trip: trip),
-                                ),
-                              );
-                            },
-                            child: const Text("Book Now"),
-                          )
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+            itemBuilder: (_, i) {
+              final trip = trips[i];
+              return TripCard(
+                trip: trip,
+                onTap: () {
+                  // Later you can add TripDetailsPage navigation here
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Clicked on ${trip.title}')),
+                  );
+                },
               );
             },
           );

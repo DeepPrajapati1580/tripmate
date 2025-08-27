@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/trip_service.dart';
 
 class TripFormPage extends StatefulWidget {
   const TripFormPage({super.key});
@@ -30,61 +30,53 @@ class _TripFormPageState extends State<TripFormPage> {
       lastDate: now.add(const Duration(days: 365 * 3)),
       initialDate: now,
     );
-    if (picked != null) {
-      setState(() => isStart ? _start = picked : _end = picked);
-    }
+    if (picked != null) setState(() => isStart ? _start = picked : _end = picked);
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_start == null || _end == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Choose start and end dates')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please pick start & end dates')),
+      );
+      return;
+    }
+    if (_end!.isBefore(_start!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('End date must be after start date')),
+      );
       return;
     }
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You must be logged in')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Not logged in')),
+      );
       return;
     }
 
     setState(() => _saving = true);
     try {
-      final priceInt = int.tryParse(_price.text.trim()) ?? 0;
-      final capacityInt = int.tryParse(_capacity.text.trim()) ?? 0;
-
-      await FirebaseFirestore.instance.collection('trip_packages').add({
-        'title': _title.text.trim(),
-        'description': _desc.text.trim(),
-        'destination': _dest.text.trim(),
-        'startDate': Timestamp.fromDate(_start!),
-        'endDate': Timestamp.fromDate(_end!),
-        'price': priceInt,
-        'capacity': capacityInt,
-        'bookedSeats': 0,
-        'createdBy': user.uid,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Trip created')));
-        Navigator.pop(context);
-      }
+      await TripService.create(
+        title: _title.text.trim(),
+        description: _desc.text.trim(),
+        destination: _dest.text.trim(),
+        startDate: _start!,
+        endDate: _end!,
+        price: (double.tryParse(_price.text.trim()) ?? 0).round(),
+        capacity: int.tryParse(_capacity.text.trim()) ?? 0,
+        createdBy: user.uid,
+      );
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Save failed: $e')));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-
-  @override
-  void dispose() {
-    _title.dispose();
-    _desc.dispose();
-    _dest.dispose();
-    _price.dispose();
-    _capacity.dispose();
-    super.dispose();
   }
 
   @override
@@ -136,9 +128,9 @@ class _TripFormPageState extends State<TripFormPage> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _price,
-                decoration: const InputDecoration(labelText: 'Price per seat (INR)'),
-                keyboardType: TextInputType.number,
-                validator: (v) => (int.tryParse(v ?? '') ?? 0) > 0 ? null : 'Enter amount',
+                decoration: const InputDecoration(labelText: 'Price (INR)'),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                validator: (v) => (double.tryParse(v ?? '') ?? 0) > 0 ? null : 'Enter amount',
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -150,7 +142,9 @@ class _TripFormPageState extends State<TripFormPage> {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _saving ? null : _save,
-                child: _saving ? const CircularProgressIndicator(color: Colors.white) : const Text('Save'),
+                child: _saving
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Save'),
               ),
             ],
           ),

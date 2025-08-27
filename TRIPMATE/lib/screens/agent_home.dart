@@ -1,27 +1,11 @@
+// lib/screens/agent_home.dart
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/trip_package.dart';
+import '../services/trip_service.dart';
 import 'agent/trip_form_page.dart';
 import 'agent/trip_edit_page.dart';
-
-/// TripService centralizes Firestore queries
-class TripService {
-  static Stream<QuerySnapshot> streamByAgent(String agentId) {
-    return FirebaseFirestore.instance
-        .collection('trip_packages')
-        .where('createdBy', isEqualTo: agentId)
-        .orderBy('createdAt', descending: true)
-        .snapshots();
-  }
-
-  static Future<void> deleteTrip(String tripId) {
-    return FirebaseFirestore.instance
-        .collection('trip_packages')
-        .doc(tripId)
-        .delete();
-  }
-}
 
 class AgentHome extends StatelessWidget {
   const AgentHome({super.key});
@@ -54,56 +38,35 @@ class AgentHome extends StatelessWidget {
       ),
       body: user == null
           ? const Center(child: Text('Please login'))
-          : StreamBuilder<QuerySnapshot>(
+          : StreamBuilder<List<TripPackage>>(
               stream: TripService.streamByAgent(user.uid),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-
-                if (snapshot.hasError) {
+                if (snap.hasError) {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Text(
-                        'Error loading packages:\n${snapshot.error}',
-                        textAlign: TextAlign.center,
-                      ),
+                      child: Text('Error loading packages:\n${snap.error}'),
                     ),
                   );
                 }
-
-                final docs = snapshot.data?.docs ?? [];
-                if (docs.isEmpty) {
+                final items = snap.data ?? [];
+                if (items.isEmpty) {
                   return const Center(
-                    child: Text(
-                      'No packages created yet.\nTap + to add one!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16),
-                    ),
+                    child: Text('No packages created yet.\nTap + to add one!'),
                   );
                 }
-
                 return ListView.builder(
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) {
-                    final d = docs[index];
-                    final data = d.data() as Map<String, dynamic>;
-                    final tripId = d.id;
-                    final title = (data['title'] ?? 'Untitled').toString();
-                    final destination =
-                        (data['destination'] ?? 'Unknown').toString();
-                    final price = (data['price'] ?? 0).toString();
-
+                  itemCount: items.length,
+                  itemBuilder: (_, i) {
+                    final t = items[i];
                     return Card(
-                      margin:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       child: ListTile(
-                        title: Text(
-                          title,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text('Destination: $destination\n₹$price'),
+                        title: Text(t.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('${t.destination} • ₹${t.price}'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -114,8 +77,18 @@ class AgentHome extends StatelessWidget {
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => TripEditPage(
-                                      tripId: tripId,
-                                      existingData: data,
+                                      tripId: t.id,
+                                      existingData: {
+                                        'title': t.title,
+                                        'description': t.description,
+                                        'destination': t.destination,
+                                        'startDate': Timestamp.fromDate(t.startDate),
+                                        'endDate': Timestamp.fromDate(t.endDate),
+                                        'price': t.price,
+                                        'capacity': t.capacity,
+                                        'bookedSeats': t.bookedSeats,
+                                        'imageUrl': t.imageUrl,
+                                      },
                                     ),
                                   ),
                                 );
@@ -128,30 +101,24 @@ class AgentHome extends StatelessWidget {
                                   context: context,
                                   builder: (ctx) => AlertDialog(
                                     title: const Text('Delete Package'),
-                                    content: const Text(
-                                        'Are you sure you want to delete this package?'),
+                                    content: const Text('Delete this package?'),
                                     actions: [
                                       TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, false),
+                                        onPressed: () => Navigator.pop(ctx, false),
                                         child: const Text('Cancel'),
                                       ),
                                       ElevatedButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, true),
+                                        onPressed: () => Navigator.pop(ctx, true),
                                         child: const Text('Delete'),
                                       ),
                                     ],
                                   ),
                                 );
-
                                 if (confirm == true) {
-                                  await TripService.deleteTrip(tripId);
+                                  await TripService.delete(t.id);
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Package deleted'),
-                                      ),
+                                      const SnackBar(content: Text('Package deleted')),
                                     );
                                   }
                                 }
