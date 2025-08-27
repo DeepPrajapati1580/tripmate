@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../models/trip_package.dart';
 import '../../services/trip_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class TripBookingPage extends StatefulWidget {
   final TripPackage trip;
@@ -21,9 +22,9 @@ class _TripBookingPageState extends State<TripBookingPage> {
 
     try {
       await TripService.bookTrip(
-        widget.trip.id ?? "",                // trip id
-        _seats,                              // seats
-        widget.trip.pricePerSeat ?? 0,       // price per seat
+        tripId: widget.trip.id,
+        seats: List.generate(_seats, (i) => i + widget.trip.bookedSeats + 1), // auto seat numbers
+        userId: FirebaseAuth.instance.currentUser!.uid,
       );
 
       if (mounted) {
@@ -79,7 +80,7 @@ class _TripBookingPageState extends State<TripBookingPage> {
             ),
             const SizedBox(height: 20),
             Text(
-              "Total: ₹ ${(widget.trip.pricePerSeat / 100 * _seats).toStringAsFixed(0)}",
+              "Total: ₹ ${(widget.trip.price / 100 * _seats).toStringAsFixed(0)}",
               style: const TextStyle(
                   fontWeight: FontWeight.bold, fontSize: 18),
             ),

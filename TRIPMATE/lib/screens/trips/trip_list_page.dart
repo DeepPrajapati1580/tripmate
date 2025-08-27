@@ -1,3 +1,4 @@
+// lib/pages/customer/trip_list_page.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -5,6 +6,8 @@ import '../../models/trip_package.dart';
 import '../../services/trip_service.dart';
 import '../../services/payment_service.dart';
 import '../../services/booking_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class TripListPage extends StatefulWidget {
   const TripListPage({super.key});
@@ -36,17 +39,20 @@ class _TripListPageState extends State<TripListPage> {
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     if (_pendingBookingId != null) {
+      // ✅ mark booking as paid
       await BookingService.markPaid(
         bookingId: _pendingBookingId!,
         razorpayPaymentId: response.paymentId ?? '',
         razorpaySignature: response.signature ?? '',
       );
+
+      // ✅ increment bookedSeats in trip package
       if (_pendingTripId != null && _pendingSeatsCount > 0) {
-        await TripService.updateBookedSeats(
-          tripId: _pendingTripId!,
-          delta: _pendingSeatsCount,
-        );
+        await TripService.update(_pendingTripId!, {
+          'bookedSeats': FieldValue.increment(_pendingSeatsCount),
+        });
       }
+
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -88,15 +94,14 @@ class _TripListPageState extends State<TripListPage> {
       return;
     }
 
-    // ✅ FIXED: totalAmount is an int (Razorpay requires int)
-    final totalAmount = (trip.pricePerSeat * _seats).toInt(); // paise
+    final totalAmount = (trip.price * _seats).toInt();
 
     try {
       final order = await PaymentService.createRazorpayOrder(
         amount: totalAmount,
         currency: 'INR',
         receipt: 'trip_${trip.id}_${DateTime.now().millisecondsSinceEpoch}',
-        notes: {'tripId': trip.id},
+        notes: {'tripPackageId': trip.id},
       );
 
       final booking = await BookingService.createPendingBooking(
@@ -107,7 +112,7 @@ class _TripListPageState extends State<TripListPage> {
       );
 
       setState(() {
-        _pendingBookingId = booking.id; // ✅ booking.id is String
+        _pendingBookingId = booking.id;
         _pendingTripId = trip.id;
         _pendingSeatsCount = _seats;
       });
@@ -177,7 +182,7 @@ class _TripListPageState extends State<TripListPage> {
                         children: [
                           Expanded(
                             child: Text(
-                              '₹ ${(t.pricePerSeat / 100).toStringAsFixed(0)} per seat',
+                              '₹ ${(t.price / 100).toStringAsFixed(0)} per seat',
                             ),
                           ),
                           Row(
