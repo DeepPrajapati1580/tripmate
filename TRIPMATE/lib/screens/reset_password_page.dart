@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+
 class ResetPasswordPage extends StatefulWidget {
   const ResetPasswordPage({super.key});
 
@@ -60,7 +61,20 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Reset password')),
+      appBar: AppBar(title: const Text('Reset password'),
+      actions:[
+        IconButton(
+          icon: const Icon(Icons.login),
+          tooltip:'Go to Login',
+          onPressed: () async{
+            // await FirebaseAuth.instance.signOut();
+            
+              Navigator.of(context).pushReplacementNamed('/login');
+            
+          },
+        ),
+      ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

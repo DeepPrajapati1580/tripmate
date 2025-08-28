@@ -13,7 +13,7 @@ class TripDetailsPage extends StatefulWidget {
 }
 
 class _TripDetailsPageState extends State<TripDetailsPage> {
-  Set<int> _selectedSeats = {};
+  final Set<int> _selectedSeats = {};
   bool _loading = false;
 
   Future<void> _bookSeats() async {

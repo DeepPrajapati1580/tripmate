@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tripmate/screens/auth_page.dart';
 
 // Auth screens
 import 'screens/auth/login_screen.dart';
@@ -15,4 +16,5 @@ final Map<String, WidgetBuilder> appRoutes = {
   '/customerHome': (_) => const CustomerHome(),
   '/agentHome': (_) => const AgentHome(),
   '/adminHome': (_) => const AdminHome(),
+  // '/authpage':(_) => const AuthPage(role: Customer),),
 };

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:tripmate/screens/auth/login_screen.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -43,6 +44,10 @@ class TripMateApp extends StatelessWidget {
     debugShowCheckedModeBanner: false,
     routes: {
     '/reset-password': (context) => const ResetPasswordPage(),
+    '/login':(context) => const LoginScreen(),
+      '/customerHome': (_) => const CustomerHome(),
+  '/agentHome': (_) => const AgentHome(),
+  '/adminHome': (_) => const AdminHome(),
   },
 
     );

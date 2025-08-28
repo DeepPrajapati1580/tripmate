@@ -1,7 +1,6 @@
 // lib/services/trip_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/trip_package.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import 'cloudinary_service.dart';
 

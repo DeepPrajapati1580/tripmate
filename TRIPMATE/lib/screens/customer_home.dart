@@ -29,9 +29,9 @@ class _CustomerHomeState extends State<CustomerHome> {
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
-              if (mounted) {
-                Navigator.of(context).pushReplacementNamed('/login');
-              }
+              // if (mounted) {
+              //   Navigator.of(context).pushReplacementNamed('/login');
+              // }
             },
           ),
         ],
