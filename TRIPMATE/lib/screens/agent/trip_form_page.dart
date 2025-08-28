@@ -69,11 +69,13 @@ class _TripFormPageState extends State<TripFormPage> {
 
     try {
       String? imageUrl;
+      String? publicId;
 
       // ✅ Upload to Cloudinary if image picked
       if (_selectedImage != null) {
-        final uploadRes = await CloudinaryUploader.uploadImage(_selectedImage!.path);
-        imageUrl = uploadRes["secure_url"];  // 👈 correct key
+        final uploadRes = await CloudinaryUploader.uploadImage(filePath: _selectedImage!.path);
+        imageUrl = uploadRes["secure_url"];
+        publicId = uploadRes["publicId"];
       }
 
       await TripService.create(
@@ -85,7 +87,8 @@ class _TripFormPageState extends State<TripFormPage> {
         price: int.parse(_priceCtrl.text),
         capacity: int.parse(_capacityCtrl.text),
         createdBy: FirebaseAuth.instance.currentUser!.uid,
-        localImagePath: imageUrl,
+        imageUrl: imageUrl,        // 👈 save Cloudinary URL
+        imagePublicId: publicId,   // 👈 save Cloudinary ID
       );
 
       if (mounted) {

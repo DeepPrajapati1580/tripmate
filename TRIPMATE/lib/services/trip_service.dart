@@ -1,6 +1,7 @@
 // lib/services/trip_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/trip_package.dart';
+import 'dart:typed_data';
 
 import 'cloudinary_service.dart';
 
@@ -52,18 +53,9 @@ class TripService {
     required int price,
     required int capacity,
     required String createdBy,
-    String? localImagePath, // 👈 file path before upload
+    String? imageUrl,       // 👈 Already uploaded Cloudinary URL
+    String? imagePublicId,  // 👈 Already uploaded Cloudinary publicId
   }) async {
-    String? publicId;
-    String? imageUrl;
-    if (localImagePath != null) {
-      final uploadResult = await CloudinaryUploader.uploadImage(localImagePath);
-
-      publicId = uploadResult["publicId"];
-      imageUrl = uploadResult["secure_url"]; // ✅ fixed key
-    }
-
-
     await _col.add({
       'title': title,
       'description': description,
@@ -76,9 +68,10 @@ class TripService {
       'createdBy': createdBy,
       'createdAt': FieldValue.serverTimestamp(),
       'imageUrl': imageUrl,
-      'imagePublicId': publicId,
+      'imagePublicId': imagePublicId,
     });
   }
+
 
   /// ✅ Book trip with seat numbers
   static Future<void> bookTrip({

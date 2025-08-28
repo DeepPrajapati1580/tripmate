@@ -1,30 +1,50 @@
 // lib/services/cloudinary_service.dart
+import 'dart:typed_data';
 import 'package:cloudinary_public/cloudinary_public.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class CloudinaryUploader {
   static final cloudinary = CloudinaryPublic(
-    'dbdhnrhur',
-    'tripmate_preset',    // e.g. "trip_upload"
+    'dbdhnrhur',        // cloud name
+    'tripmate_preset', // unsigned preset
     cache: false,
   );
 
-  /// Uploads a local image file to Cloudinary
-  static Future<Map<String, String>> uploadImage(String filePath) async {
+  /// Upload image to Cloudinary (works for both web & mobile)
+  static Future<Map<String, String>> uploadImage({
+    String? filePath,       // for mobile/desktop
+    Uint8List? fileBytes,   // for web
+    String? fileName,       // only for web
+  }) async {
     try {
-      final response = await cloudinary.uploadFile(
-        CloudinaryFile.fromFile(
-          filePath,
-          resourceType: CloudinaryResourceType.Image,
-          folder: "tripmate", // optional
-        ),
-      );
+      CloudinaryResponse response;
+
+      if (kIsWeb) {
+        if (fileBytes == null || fileName == null) {
+          throw Exception("On Web, you must pass fileBytes + fileName");
+        }
+        response = await cloudinary.uploadFile(
+          CloudinaryFile.fromBytesData(fileBytes, identifier: fileName),
+        );
+      } else {
+        if (filePath == null) {
+          throw Exception("On Mobile/Desktop, you must pass filePath");
+        }
+        response = await cloudinary.uploadFile(
+          CloudinaryFile.fromFile(
+            filePath,
+            resourceType: CloudinaryResourceType.Image,
+            folder: "tripmate",
+          ),
+        );
+      }
 
       return {
         "publicId": response.publicId,
-        "secure_url": response.secureUrl, // ⚡ correct key is secure_url
+        "secure_url": response.secureUrl,
       };
     } catch (e) {
-      print("Cloudinary error: $e"); // 👈 will show actual message from Cloudinary
+      print("Cloudinary error: $e");
       throw Exception("Cloudinary upload failed: $e");
     }
   }
