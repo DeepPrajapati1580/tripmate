@@ -1,7 +1,9 @@
 // lib/screens/agent/trip_form_page.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/cloudinary_service.dart';
 import '../../services/trip_service.dart';
 
 class TripFormPage extends StatefulWidget {
@@ -13,138 +15,176 @@ class TripFormPage extends StatefulWidget {
 
 class _TripFormPageState extends State<TripFormPage> {
   final _formKey = GlobalKey<FormState>();
-  final _title = TextEditingController();
-  final _desc = TextEditingController();
-  final _dest = TextEditingController();
-  final _price = TextEditingController();
-  final _capacity = TextEditingController();
-  DateTime? _start;
-  DateTime? _end;
-  bool _saving = false;
+  final _titleCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  final _destCtrl = TextEditingController();
+  final _priceCtrl = TextEditingController();
+  final _capacityCtrl = TextEditingController();
 
-  Future<void> _pickDate(bool isStart) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365 * 3)),
-      initialDate: now,
-    );
-    if (picked != null) setState(() => isStart ? _start = picked : _end = picked);
+  DateTime? _startDate, _endDate;
+  File? _selectedImage;
+  bool _loading = false;
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() => _selectedImage = File(picked.path));
+    }
   }
 
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_start == null || _end == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please pick start & end dates')),
-      );
-      return;
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => _startDate = picked);
     }
-    if (_end!.isBefore(_start!)) {
+  }
+
+  Future<void> _pickEndDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? DateTime.now(),
+      firstDate: _startDate ?? DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => _endDate = picked);
+    }
+  }
+
+  Future<void> _createTrip() async {
+    if (!_formKey.currentState!.validate() || _startDate == null || _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('End date must be after start date')),
+        const SnackBar(content: Text("Please fill all fields and pick dates")),
       );
       return;
     }
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Not logged in')),
-      );
-      return;
-    }
+    setState(() => _loading = true);
 
-    setState(() => _saving = true);
     try {
+      String? imageUrl;
+
+      // ✅ Upload to Cloudinary if image picked
+      if (_selectedImage != null) {
+        final uploadRes = await CloudinaryUploader.uploadImage(_selectedImage!.path);
+        imageUrl = uploadRes["secure_url"];  // 👈 correct key
+      }
+
       await TripService.create(
-        title: _title.text.trim(),
-        description: _desc.text.trim(),
-        destination: _dest.text.trim(),
-        startDate: _start!,
-        endDate: _end!,
-        price: (double.tryParse(_price.text.trim()) ?? 0).round(),
-        capacity: int.tryParse(_capacity.text.trim()) ?? 0,
-        createdBy: user.uid,
+        title: _titleCtrl.text,
+        description: _descCtrl.text,
+        destination: _destCtrl.text,
+        startDate: _startDate!,
+        endDate: _endDate!,
+        price: int.parse(_priceCtrl.text),
+        capacity: int.parse(_capacityCtrl.text),
+        createdBy: FirebaseAuth.instance.currentUser!.uid,
+        localImagePath: imageUrl,
       );
-      if (mounted) Navigator.pop(context);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Trip created successfully ✅")),
+        );
+        Navigator.pop(context);
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Save failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final df = DateFormat.yMMMd();
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Trip Package')),
-      body: Padding(
+      appBar: AppBar(title: const Text("Create Trip Package")),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
-                controller: _title,
-                decoration: const InputDecoration(labelText: 'Title'),
-                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                controller: _titleCtrl,
+                decoration: const InputDecoration(labelText: "Title"),
+                validator: (v) => v!.isEmpty ? "Enter title" : null,
               ),
-              const SizedBox(height: 12),
               TextFormField(
-                controller: _desc,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 3,
+                controller: _descCtrl,
+                decoration: const InputDecoration(labelText: "Description"),
+                validator: (v) => v!.isEmpty ? "Enter description" : null,
               ),
-              const SizedBox(height: 12),
               TextFormField(
-                controller: _dest,
-                decoration: const InputDecoration(labelText: 'Destination'),
-                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                controller: _destCtrl,
+                decoration: const InputDecoration(labelText: "Destination"),
+                validator: (v) => v!.isEmpty ? "Enter destination" : null,
               ),
+              TextFormField(
+                controller: _priceCtrl,
+                decoration: const InputDecoration(labelText: "Price (₹)"),
+                keyboardType: TextInputType.number,
+                validator: (v) => v!.isEmpty ? "Enter price" : null,
+              ),
+              TextFormField(
+                controller: _capacityCtrl,
+                decoration: const InputDecoration(labelText: "Capacity"),
+                keyboardType: TextInputType.number,
+                validator: (v) => v!.isEmpty ? "Enter capacity" : null,
+              ),
+
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _pickDate(true),
-                      child: Text(_start == null ? 'Start date' : df.format(_start!)),
-                    ),
+                  ElevatedButton(
+                    onPressed: _pickStartDate,
+                    child: Text(_startDate == null
+                        ? "Pick Start Date"
+                        : "Start: ${_startDate!.toLocal()}".split(' ')[0]),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _pickDate(false),
-                      child: Text(_end == null ? 'End date' : df.format(_end!)),
-                    ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _pickEndDate,
+                    child: Text(_endDate == null
+                        ? "Pick End Date"
+                        : "End: ${_endDate!.toLocal()}".split(' ')[0]),
                   ),
                 ],
               ),
+
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _price,
-                decoration: const InputDecoration(labelText: 'Price (INR)'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) => (double.tryParse(v ?? '') ?? 0) > 0 ? null : 'Enter amount',
+              Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: _pickImage,
+                    child: const Text("Pick Image"),
+                  ),
+                  const SizedBox(width: 12),
+                  if (_selectedImage != null)
+                    Expanded(child: Image.file(_selectedImage!, height: 100)),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _capacity,
-                decoration: const InputDecoration(labelText: 'Capacity'),
-                keyboardType: TextInputType.number,
-                validator: (v) => (int.tryParse(v ?? '') ?? 0) > 0 ? null : 'Enter capacity',
-              ),
+
               const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Save'),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _loading ? null : _createTrip,
+                  child: _loading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text("Create Package"),
+                ),
               ),
             ],
           ),

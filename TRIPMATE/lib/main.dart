@@ -11,6 +11,12 @@ import 'screens/agent_home.dart';
 import 'screens/admin_home.dart';
 import 'screens/auth_page.dart';
 
+// Import the Cloudinary packages.
+import 'package:cloudinary_url_gen/cloudinary.dart';
+import 'package:cloudinary_flutter/image/cld_image.dart';
+import 'package:cloudinary_flutter/cloudinary_context.dart';
+import 'package:flutter/material.dart';
+
 import 'theme.dart';
 import 'screens/reset_password_page.dart';
 void main() async {
@@ -18,6 +24,10 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // ✅ Replace 'demo' with your real cloud name
+  CloudinaryContext.cloudinary = Cloudinary.fromCloudName(cloudName: 'dbdhnrhur');
+
   runApp(const TripMateApp());
 }
 

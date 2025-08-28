@@ -19,7 +19,7 @@ subprojects {
 subprojects {
     afterEvaluate {
         extensions.findByType<com.android.build.gradle.BaseExtension>()?.apply {
-            compileSdkVersion(34) // match your Flutter compileSdkVersion
+            compileSdkVersion(35) // match your Flutter compileSdkVersion
         }
     }
 }

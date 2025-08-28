@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.example.tripmate"
-    compileSdk = 34
+    compileSdk = 35
     ndkVersion = "27.0.12077973" // Match the version Firebase expects
 
     compileOptions {
@@ -25,7 +25,7 @@ android {
     defaultConfig {
         applicationId = "com.example.tripmate"
         minSdk = 23
-        targetSdk = 34
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

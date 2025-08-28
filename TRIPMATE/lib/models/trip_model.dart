@@ -7,7 +7,6 @@ class TripPackage {
   final String destination;
   final DateTime startDate;
   final DateTime endDate;
-  /// Stored as rupees (int). If your DB has `pricePerSeat`, we fallback to it.
   final int price;
   final int capacity;
   final int bookedSeats;

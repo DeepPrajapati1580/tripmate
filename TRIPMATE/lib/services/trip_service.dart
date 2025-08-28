@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/trip_package.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'cloudinary_service.dart';
+
 class TripService {
   static final _col =
   FirebaseFirestore.instance.collection('trip_packages')
@@ -12,27 +14,32 @@ class TripService {
   );
 
   /// Stream ALL packages (for customers).
-  /// We keep filter client-side to avoid composite index hassles.
   static Stream<List<TripPackage>> streamAll({bool onlyUpcoming = true}) {
     return _col.orderBy('createdAt', descending: true).snapshots().map((snap) {
       final items = snap.docs
-          .map((d) => TripPackage.fromDoc(d as DocumentSnapshot<Map<String, dynamic>>))
+          .map((d) =>
+          TripPackage.fromDoc(d as DocumentSnapshot<Map<String, dynamic>>))
           .toList();
 
       if (!onlyUpcoming) return items;
 
       final now = DateTime.now();
-      return items.where((t) => !t.endDate.isBefore(DateTime(now.year, now.month, now.day))).toList();
+      return items
+          .where((t) => !t.endDate
+          .isBefore(DateTime(now.year, now.month, now.day)))
+          .toList();
     });
   }
 
-  /// Stream packages created by a specific agent uid (for AgentHome)
+  /// Stream packages created by a specific agent uid
   static Stream<List<TripPackage>> streamByAgent(String uid) {
-    return _col.where('createdBy', isEqualTo: uid)
+    return _col
+        .where('createdBy', isEqualTo: uid)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snap) => snap.docs
-        .map((d) => TripPackage.fromDoc(d as DocumentSnapshot<Map<String, dynamic>>))
+        .map((d) =>
+        TripPackage.fromDoc(d as DocumentSnapshot<Map<String, dynamic>>))
         .toList());
   }
 
@@ -46,8 +53,18 @@ class TripService {
     required int price,
     required int capacity,
     required String createdBy,
-    String? imageUrl,
+    String? localImagePath, // 👈 file path before upload
   }) async {
+    String? publicId;
+    String? imageUrl;
+    if (localImagePath != null) {
+      final uploadResult = await CloudinaryUploader.uploadImage(localImagePath);
+
+      publicId = uploadResult["publicId"];
+      imageUrl = uploadResult["secure_url"]; // ✅ fixed key
+    }
+
+
     await _col.add({
       'title': title,
       'description': description,
@@ -60,12 +77,14 @@ class TripService {
       'createdBy': createdBy,
       'createdAt': FieldValue.serverTimestamp(),
       'imageUrl': imageUrl,
+      'imagePublicId': publicId,
     });
   }
-  // ✅ New method to book trip with seat numbers
+
+  /// ✅ Book trip with seat numbers
   static Future<void> bookTrip({
     required String tripId,
-    required List<int> seats, // ✅ selected seat numbers
+    required List<int> seats,
     required String userId,
   }) async {
     final tripRef = _col.doc(tripId);
@@ -84,7 +103,7 @@ class TripService {
           .toList() ??
           [];
 
-      // ✅ check if requested seats are already taken
+      // check if requested seats are already taken
       for (final seat in seats) {
         if (bookedSeatsList.contains(seat)) {
           throw Exception("Seat $seat is already booked");
@@ -95,7 +114,7 @@ class TripService {
         throw Exception("Not enough seats available");
       }
 
-      // ✅ update count + list
+      // update count + list
       txn.update(tripRef, {
         'bookedSeats': bookedSeats + seats.length,
         'bookedSeatsList': FieldValue.arrayUnion(seats),
