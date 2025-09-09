@@ -72,7 +72,6 @@ class TripService {
     });
   }
 
-
   /// ✅ Book trip with seat numbers
   static Future<void> bookTrip({
     required String tripId,
@@ -92,8 +91,7 @@ class TripService {
       final capacity = (data['capacity'] as num?)?.toInt() ?? 0;
       final bookedSeatsList = (data['bookedSeatsList'] as List?)
           ?.map((e) => (e as num).toInt())
-          .toList() ??
-          [];
+          .toList() ?? [];
 
       // check if requested seats are already taken
       for (final seat in seats) {
@@ -106,14 +104,26 @@ class TripService {
         throw Exception("Not enough seats available");
       }
 
-      // update count + list
+      // ✅ Update trip's booked seats
       txn.update(tripRef, {
         'bookedSeats': bookedSeats + seats.length,
         'bookedSeatsList': FieldValue.arrayUnion(seats),
       });
     });
-  }
 
+    // ✅ Create a booking document for the user
+    final tripSnapshot = await tripRef.get();
+    final tripData = tripSnapshot.data() as Map<String, dynamic>;
+
+    await FirebaseFirestore.instance.collection('bookings').add({
+      'tripPackageId': tripId,
+      'userId': userId,
+      'seats': seats.length,
+      'amount': seats.length * (tripData['price'] ?? 0),
+      'status': 'pending', // change to 'paid' if payment is integrated
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
   /// Update a package
   static Future<void> update(String id, Map<String, dynamic> data) async {
     final docRef = _col.doc(id);
