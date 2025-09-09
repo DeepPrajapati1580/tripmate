@@ -33,10 +33,9 @@ class _TripEditPageState extends State<TripEditPage> {
 
   DateTime? _startDate, _endDate;
 
-  // For image handling
   File? _selectedImage;
-  Uint8List? _selectedImageBytes; // for web
-  String? _selectedImageName;     // for web
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageName;
 
   String? _existingImageUrl;
   String? _existingImagePublicId;
@@ -62,7 +61,6 @@ class _TripEditPageState extends State<TripEditPage> {
     _existingImagePublicId = data["imagePublicId"];
   }
 
-  /// Pick image cross-platform
   Future<void> _pickImage() async {
     try {
       final picker = ImagePicker();
@@ -74,8 +72,8 @@ class _TripEditPageState extends State<TripEditPage> {
           setState(() {
             _selectedImageBytes = bytes;
             _selectedImageName = picked.name;
-            _selectedImage = null; // no File on web
-            _existingImageUrl = null; // hide old preview
+            _selectedImage = null;
+            _existingImageUrl = null;
           });
         } else {
           final tempDir = await getTemporaryDirectory();
@@ -100,7 +98,7 @@ class _TripEditPageState extends State<TripEditPage> {
       context: context,
       initialDate: _startDate ?? DateTime.now(),
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+      lastDate: DateTime(2100),
     );
     if (picked != null) setState(() => _startDate = picked);
   }
@@ -110,7 +108,7 @@ class _TripEditPageState extends State<TripEditPage> {
       context: context,
       initialDate: _endDate ?? (_startDate ?? DateTime.now()),
       firstDate: _startDate ?? DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+      lastDate: DateTime(2100),
     );
     if (picked != null) setState(() => _endDate = picked);
   }
@@ -129,7 +127,6 @@ class _TripEditPageState extends State<TripEditPage> {
       String? imageUrl = _existingImageUrl;
       String? publicId = _existingImagePublicId;
 
-      // Upload new image if picked
       if (_selectedImage != null || (_selectedImageBytes != null && _selectedImageName != null)) {
         Map<String, String> uploadRes;
 
@@ -180,99 +177,165 @@ class _TripEditPageState extends State<TripEditPage> {
   Widget build(BuildContext context) {
     final df = DateFormat.yMMMd();
     return Scaffold(
-      appBar: AppBar(title: const Text("Edit Trip Package")),
+      appBar: AppBar(
+        title: const Text("Edit Trip Package"),
+        backgroundColor: Colors.teal,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _titleCtrl,
-                decoration: const InputDecoration(labelText: "Title"),
-                validator: (v) => v!.isEmpty ? "Enter title" : null,
-              ),
-              TextFormField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: "Description"),
-                validator: (v) => v!.isEmpty ? "Enter description" : null,
-              ),
-              TextFormField(
-                controller: _destCtrl,
-                decoration: const InputDecoration(labelText: "Destination"),
-                validator: (v) => v!.isEmpty ? "Enter destination" : null,
-              ),
-              TextFormField(
-                controller: _priceCtrl,
-                decoration: const InputDecoration(labelText: "Price (₹)"),
-                keyboardType: TextInputType.number,
-                validator: (v) => v!.isEmpty ? "Enter price" : null,
-              ),
-              TextFormField(
-                controller: _capacityCtrl,
-                decoration: const InputDecoration(labelText: "Capacity"),
-                keyboardType: TextInputType.number,
-                validator: (v) => v!.isEmpty ? "Enter capacity" : null,
-              ),
-              const SizedBox(height: 12),
-              Row(
+        child: Card(
+          elevation: 3,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
                 children: [
-                  ElevatedButton(
-                    onPressed: _pickStartDate,
-                    child: Text(_startDate == null
-                        ? "Pick Start Date"
-                        : "Start: ${df.format(_startDate!)}"),
+                  // Title
+                  TextFormField(
+                    controller: _titleCtrl,
+                    decoration: InputDecoration(
+                      labelText: "Title",
+                      prefixIcon: const Icon(Icons.title),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    validator: (v) => v!.isEmpty ? "Enter title" : null,
                   ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _pickEndDate,
-                    child: Text(_endDate == null
-                        ? "Pick End Date"
-                        : "End: ${df.format(_endDate!)}"),
+                  const SizedBox(height: 12),
+
+                  // Description
+                  TextFormField(
+                    controller: _descCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      labelText: "Description",
+                      prefixIcon: const Icon(Icons.description),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    validator: (v) => v!.isEmpty ? "Enter description" : null,
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ElevatedButton(
-                    onPressed: _pickImage,
-                    child: const Text("Pick Image"),
+                  const SizedBox(height: 12),
+
+                  // Destination
+                  TextFormField(
+                    controller: _destCtrl,
+                    decoration: InputDecoration(
+                      labelText: "Destination",
+                      prefixIcon: const Icon(Icons.location_on),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    validator: (v) => v!.isEmpty ? "Enter destination" : null,
                   ),
-                  const SizedBox(height: 8),
-                  if (_selectedImage != null)
-                    SizedBox(
-                      width: double.infinity,
-                      height: 150,
-                      child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                    )
-                  else if (_selectedImageBytes != null)
-                    SizedBox(
-                      width: double.infinity,
-                      height: 150,
-                      child: Image.memory(_selectedImageBytes!, fit: BoxFit.cover),
-                    )
-                  else if (_existingImageUrl != null)
-                      SizedBox(
-                        width: double.infinity,
-                        height: 150,
-                        child: Image.network(_existingImageUrl!, fit: BoxFit.cover),
+                  const SizedBox(height: 12),
+
+                  // Price
+                  TextFormField(
+                    controller: _priceCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: "Price (₹)",
+                      prefixIcon: const Icon(Icons.currency_rupee),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    validator: (v) => v!.isEmpty ? "Enter price" : null,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Capacity
+                  TextFormField(
+                    controller: _capacityCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: "Capacity",
+                      prefixIcon: const Icon(Icons.people),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    validator: (v) => v!.isEmpty ? "Enter capacity" : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Dates
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.date_range),
+                          label: Text(
+                            _startDate == null ? "Pick Start Date" : "Start: ${df.format(_startDate!)}",
+                          ),
+                          onPressed: _pickStartDate,
+                        ),
                       ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.event),
+                          label: Text(
+                            _endDate == null ? "Pick End Date" : "End: ${df.format(_endDate!)}",
+                          ),
+                          onPressed: _pickEndDate,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Image
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _pickImage,
+                        icon: const Icon(Icons.image),
+                        label: const Text("Pick Image"),
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: _selectedImage != null
+                            ? Image.file(_selectedImage!, height: 150, width: double.infinity, fit: BoxFit.cover)
+                            : _selectedImageBytes != null
+                            ? Image.memory(_selectedImageBytes!, height: 150, width: double.infinity, fit: BoxFit.cover)
+                            : _existingImageUrl != null
+                            ? Image.network(_existingImageUrl!, height: 150, width: double.infinity, fit: BoxFit.cover)
+                            : Container(
+                          height: 150,
+                          width: double.infinity,
+                          color: Colors.grey.shade200,
+                          child: const Center(child: Text("No Image Selected")),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Update Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: _loading ? null : _updateTrip,
+                      icon: _loading
+                          ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                          : const Icon(Icons.save),
+                      label: Text(
+                        _loading ? "Updating..." : "Update Package",
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _updateTrip,
-                  child: _loading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("Update Package"),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

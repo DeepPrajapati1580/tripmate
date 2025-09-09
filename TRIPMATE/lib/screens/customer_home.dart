@@ -5,6 +5,7 @@ import '../models/trip_package.dart';
 import '../services/trip_service.dart';
 import '../widgets/trip_card.dart';
 import 'trip_details_page.dart';
+import 'my_bookings_page.dart'; // 👈 added
 
 class CustomerHome extends StatefulWidget {
   const CustomerHome({super.key});
@@ -18,6 +19,8 @@ class _CustomerHomeState extends State<CustomerHome> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser; // 👈 get current user
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
@@ -26,6 +29,20 @@ class _CustomerHomeState extends State<CustomerHome> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.book_online),
+            tooltip: "My Bookings",
+            onPressed: () {
+              if (user != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MyBookingsPage(userId: user.uid), // 👈 pass userId
+                  ),
+                );
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
