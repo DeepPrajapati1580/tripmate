@@ -1,8 +1,9 @@
+// lib/screens/customer/my_bookings_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/trip_package.dart';
 import '../../models/booking.dart';
-import './trip_details_page.dart'; // ✅ Import TripDetailsPage
+import 'trip_details_page.dart';
 
 class MyBookingsPage extends StatelessWidget {
   final String userId;
@@ -20,22 +21,45 @@ class MyBookingsPage extends StatelessWidget {
         stream: FirebaseFirestore.instance
             .collection("bookings")
             .where("userId", isEqualTo: userId)
-            .orderBy("createdAt", descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
+
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(child: Text("No bookings found"));
           }
 
+          // ✅ Convert all bookings
           final bookings = snapshot.data!.docs
               .map((doc) =>
               Booking.fromDoc(doc as DocumentSnapshot<Map<String, dynamic>>))
               .toList();
 
-          final tripIds = bookings.map((b) => b.tripPackageId).toSet().toList();
+          // ✅ Group bookings by tripPackageId
+          final Map<String, Booking> groupedBookings = {};
+          for (var b in bookings) {
+            if (groupedBookings.containsKey(b.tripPackageId)) {
+              // sum seats and amount
+              final existing = groupedBookings[b.tripPackageId]!;
+              groupedBookings[b.tripPackageId] = Booking(
+                id: existing.id,
+                tripPackageId: existing.tripPackageId,
+                userId: existing.userId,
+                seats: existing.seats + b.seats,
+                amount: existing.amount + b.amount,
+                status: b.status, // you can decide which status to show
+                createdAt: existing.createdAt.isBefore(b.createdAt)
+                    ? existing.createdAt
+                    : b.createdAt,
+              );
+            } else {
+              groupedBookings[b.tripPackageId] = b;
+            }
+          }
+
+          final tripIds = groupedBookings.keys.toList();
 
           return FutureBuilder<QuerySnapshot>(
             future: FirebaseFirestore.instance
@@ -57,10 +81,12 @@ class MyBookingsPage extends StatelessWidget {
                       d as DocumentSnapshot<Map<String, dynamic>>)
               };
 
+              final groupedList = groupedBookings.values.toList();
+
               return ListView.builder(
-                itemCount: bookings.length,
+                itemCount: groupedList.length,
                 itemBuilder: (context, index) {
-                  final booking = bookings[index];
+                  final booking = groupedList[index];
                   final trip = trips[booking.tripPackageId];
 
                   if (trip == null) {
@@ -68,51 +94,48 @@ class MyBookingsPage extends StatelessWidget {
                         title: Text("Trip not found (maybe deleted)"));
                   }
 
-                  return GestureDetector(
-                    onTap: () {
-                      // ✅ Navigate to TripDetailsPage
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TripDetailsPage(trip: trip),
+                  return Card(
+                    margin: const EdgeInsets.all(12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: ListTile(
+                      onTap: () {
+                        // ✅ Navigate to trip details
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TripDetailsPage(trip: trip),
+                          ),
+                        );
+                      },
+                      leading: trip.imageUrl != null && trip.imageUrl!.isNotEmpty
+                          ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          trip.imageUrl!,
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
                         ),
-                      );
-                    },
-                    child: Card(
-                      margin: const EdgeInsets.all(12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                      )
+                          : const Icon(Icons.card_travel,
+                          size: 40, color: Colors.teal),
+                      title: Text(trip.title),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Destination: ${trip.destination}"),
+                          Text("Seats: ${booking.seats}"),
+                          Text("Total: ₹${booking.seats * trip.price}"),
+                          Text("Status: ${booking.status.name}"),
+                        ],
                       ),
-                      child: ListTile(
-                        leading: trip.imageUrl != null &&
-                            trip.imageUrl!.isNotEmpty
-                            ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            trip.imageUrl!,
-                            width: 60,
-                            height: 60,
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                            : const Icon(Icons.card_travel,
-                            size: 40, color: Colors.teal),
-                        title: Text(trip.title),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Destination: ${trip.destination}"),
-                            Text("Seats: ${booking.seats}"),
-                            Text("Total: ₹${booking.amount ~/ 100}"),
-                            Text("Status: ${booking.status.name}"),
-                          ],
-                        ),
-                        trailing: Text(
-                          booking.createdAt.toString().split(" ").first,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
+                      trailing: Text(
+                        booking.createdAt.toString().split(" ").first,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
                         ),
                       ),
                     ),

@@ -1,4 +1,3 @@
-// lib/screens/trip_details_page.dart
 import 'package:flutter/material.dart';
 import 'package:tripmate/models/trip_package.dart';
 import 'package:tripmate/services/trip_service.dart';
@@ -55,31 +54,95 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
     final bookedSeatsList = widget.trip.bookedSeatsList ?? [];
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.trip.title)),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.trip.description,
-              style: const TextStyle(fontSize: 16),
+      appBar: AppBar(
+        title: Text(widget.trip.title),
+        backgroundColor: Colors.teal,
+      ),
+      body: Column(
+        children: [
+          // 🟢 Trip Info Header
+          Card(
+            margin: const EdgeInsets.all(12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            elevation: 4,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.trip.imageUrl != null && widget.trip.imageUrl!.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        widget.trip.imageUrl!,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.trip.title,
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Destination: ${widget.trip.destination}",
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Dates: ${widget.trip.startDate} - ${widget.trip.endDate}",
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Price per seat: ₹${widget.trip.price}",
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Available Seats: ${totalSeats - bookedSeatsList.length}",
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  if (_selectedSeats.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        "Selected Seats: ${_selectedSeats.join(', ')}",
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w500, color: Colors.green),
+                      ),
+                    ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Text("Destination: ${widget.trip.destination}"),
-            Text("Dates: ${widget.trip.startDate} - ${widget.trip.endDate}"),
-            const SizedBox(height: 16),
-            Text("Available Seats: ${totalSeats - bookedSeatsList.length}"),
-            const SizedBox(height: 16),
+          ),
 
-            // ✅ Seat grid UI
-            Expanded(
+          const SizedBox(height: 8),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Select your seats:",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // ✅ Seat Grid
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: GridView.builder(
                 itemCount: totalSeats,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 5,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
                 ),
                 itemBuilder: (context, index) {
                   final seatNo = index + 1;
@@ -94,7 +157,7 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
                     textColor = Colors.white;
                   } else if (isSelected) {
                     bgColor = Colors.green;
-                    textColor = Colors.black; // ✅ black text for selected
+                    textColor = Colors.white;
                   } else {
                     bgColor = Colors.white;
                     textColor = Colors.black;
@@ -115,16 +178,21 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
                     child: Container(
                       decoration: BoxDecoration(
                         color: bgColor,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.black54),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.black26),
+                        boxShadow: [
+                          if (!isBooked)
+                            const BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 2,
+                                offset: Offset(1, 1))
+                        ],
                       ),
                       child: Center(
                         child: Text(
                           "$seatNo",
                           style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: textColor,
-                          ),
+                              fontWeight: FontWeight.bold, color: textColor),
                         ),
                       ),
                     ),
@@ -132,16 +200,32 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
                 },
               ),
             ),
+          ),
 
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loading ? null : _bookSeats,
-              child: _loading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("Book Now"),
-            )
-          ],
-        ),
+          // ✅ Book Button
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _loading ? null : _bookSeats,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: _loading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : Text(
+                  _selectedSeats.isEmpty
+                      ? "Book Now"
+                      : "Book ${_selectedSeats.length} Seat(s)",
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+          )
+        ],
       ),
     );
   }
