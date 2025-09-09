@@ -1,7 +1,8 @@
 // lib/screens/auth_page.dart
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import '../models/user_model.dart'; // import AppUser
+import '../../models/user_model.dart'; // AppUser
+import '../main.dart'; // for AuthWrapper
 
 class AuthPage extends StatefulWidget {
   final String role;
@@ -45,6 +46,7 @@ class _AuthPageState extends State<AuthPage> {
 
     try {
       if (isLogin) {
+        // Login
         final AppUser user = await AuthService.signInWithRole(
           _email.text.trim(),
           _password.text.trim(),
@@ -53,9 +55,14 @@ class _AuthPageState extends State<AuthPage> {
 
         if (mounted) {
           _show('Logged in as ${user.role}');
+          // ✅ Redirect to AuthWrapper, which handles routing based on Firestore
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AuthWrapper()),
+          );
         }
-        // If user.approved == false, your AuthWrapper will handle routing to pending page
       } else {
+        // Signup
         final extra = widget.role == 'travel_agent'
             ? {'agencyName': _agency.text.trim()}
             : null;
@@ -72,8 +79,13 @@ class _AuthPageState extends State<AuthPage> {
           _show(widget.role == 'customer'
               ? 'Signup successful — you are logged in'
               : 'Signup successful — pending admin approval');
+
+          // ✅ Redirect to AuthWrapper for role-based routing
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AuthWrapper()),
+          );
         }
-        // AuthWrapper will pick up Firestore doc and route accordingly
       }
     } catch (e) {
       if (mounted) _show(e.toString());
@@ -106,14 +118,12 @@ class _AuthPageState extends State<AuthPage> {
                       if (!isLogin)
                         TextFormField(
                           controller: _name,
-                          decoration:
-                          const InputDecoration(labelText: 'Full name'),
+                          decoration: const InputDecoration(labelText: 'Full name'),
                         ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _email,
-                        decoration:
-                        const InputDecoration(labelText: 'Email'),
+                        decoration: const InputDecoration(labelText: 'Email'),
                         keyboardType: TextInputType.emailAddress,
                         validator: (v) => v != null && v.contains('@')
                             ? null
@@ -122,8 +132,7 @@ class _AuthPageState extends State<AuthPage> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _password,
-                        decoration:
-                        const InputDecoration(labelText: 'Password'),
+                        decoration: const InputDecoration(labelText: 'Password'),
                         obscureText: true,
                         validator: (v) => v != null && v.length >= 6
                             ? null
@@ -135,16 +144,13 @@ class _AuthPageState extends State<AuthPage> {
                         child: ElevatedButton(
                           onPressed: _loading ? null : _submit,
                           child: _loading
-                              ? const CircularProgressIndicator(
-                            color: Colors.white,
-                          )
+                              ? const CircularProgressIndicator(color: Colors.white)
                               : Text(isLogin ? 'Login' : 'Create account'),
                         ),
                       ),
                       const SizedBox(height: 8),
                       TextButton(
-                        onPressed: () =>
-                            setState(() => isLogin = !isLogin),
+                        onPressed: () => setState(() => isLogin = !isLogin),
                         child: Text(isLogin
                             ? 'Create new account'
                             : 'Already have an account? Login'),

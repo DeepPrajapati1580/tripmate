@@ -37,9 +37,16 @@ class AgentHome extends StatelessWidget {
           context,
           MaterialPageRoute(builder: (_) => const TripFormPage()),
         ),
-        icon: const Icon(Icons.add),
-        label: const Text("New Package"),
+        icon: const Icon(
+          Icons.add,        // The + icon
+          color: Colors.white, // ✅ White color
+        ),
+        label: const Text(
+          "New Package",
+          style: TextStyle(color: Colors.white), // ✅ White text
+        ),
       ),
+
       body: user == null
           ? const Center(child: Text('Please login'))
           : StreamBuilder<List<TripPackage>>(
