@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:tripmate/screens/auth_page.dart';
 
 // Auth screens
 import 'screens/auth/login_screen.dart';

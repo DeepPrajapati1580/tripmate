@@ -1,6 +1,8 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import 'package:tripmate/models/user_model.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,34 +20,41 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  if (!_formKey.currentState!.validate()) return;
+  setState(() {
+    _loading = true;
+    _error = null;
+  });
 
-    try {
-      final user = await AuthService.signInWithRole(
-        _emailCtrl.text.trim(),
-        _passwordCtrl.text.trim(),
-        _selectedRole,
-      );
+  try {
+    final AppUser? user = await AuthService.signInWithRole(
+      _emailCtrl.text.trim(),
+      _passwordCtrl.text.trim(),
+      _selectedRole,
+    );
 
-      // ✅ Navigate based on role
-      if (!mounted) return;
-      if (user.role == 'customer') {
-        Navigator.pushReplacementNamed(context, '/customerHome');
-      } else if (user.role == 'travel_agent') {
-        Navigator.pushReplacementNamed(context, '/agentDashboard');
-      } else if (user.role == 'admin') {
-        Navigator.pushReplacementNamed(context, '/adminPanel');
-      }
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
+    if (!mounted) return;
+
+    if (user == null) {
+      setState(() => _error = "Login failed. Please check credentials.");
+      return;
     }
+
+    // ✅ Navigate based on role
+    if (user.role == 'customer') {
+      Navigator.pushReplacementNamed(context, '/customerHome');
+    } else if (user.role == 'travel_agent') {
+      Navigator.pushReplacementNamed(context, '/agentDashboard');
+    } else if (user.role == 'admin') {
+      Navigator.pushReplacementNamed(context, '/adminPanel');
+    }
+  } catch (e) {
+    setState(() => _error = e.toString());
+  } finally {
+    if (mounted) setState(() => _loading = false);
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

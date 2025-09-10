@@ -40,59 +40,63 @@ class _AuthPageState extends State<AuthPage> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
+Future<void> _submit() async {
+  if (!_formKey.currentState!.validate()) return;
+  setState(() => _loading = true);
 
-    try {
-      if (isLogin) {
-        // Login
-        final AppUser user = await AuthService.signInWithRole(
-          _email.text.trim(),
-          _password.text.trim(),
-          widget.role,
-        );
+  try {
+    if (isLogin) {
+      // Login
+      final AppUser? user = await AuthService.signInWithRole(
+        _email.text.trim(),
+        _password.text.trim(),
+        widget.role,
+      );
 
-        if (mounted) {
-          _show('Logged in as ${user.role}');
-          // ✅ Redirect to AuthWrapper, which handles routing based on Firestore
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const AuthWrapper()),
-          );
-        }
-      } else {
-        // Signup
-        final extra = widget.role == 'travel_agent'
-            ? {'agencyName': _agency.text.trim()}
-            : null;
-
-        await AuthService.signUp(
-          email: _email.text.trim(),
-          password: _password.text.trim(),
-          role: widget.role,
-          displayName: _name.text.trim(),
-          extraFields: extra,
-        );
-
-        if (mounted) {
-          _show(widget.role == 'customer'
-              ? 'Signup successful — you are logged in'
-              : 'Signup successful — pending admin approval');
-
-          // ✅ Redirect to AuthWrapper for role-based routing
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const AuthWrapper()),
-          );
-        }
+      if (user == null) {
+        if (mounted) _show("Login failed. Please check credentials.");
+        return;
       }
-    } catch (e) {
-      if (mounted) _show(e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
+
+      if (mounted) {
+        _show('Logged in as ${user.role}');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AuthWrapper()),
+        );
+      }
+    } else {
+      // Signup
+      final extra = widget.role == 'travel_agent'
+          ? {'agencyName': _agency.text.trim()}
+          : null;
+
+      await AuthService.signUp(
+        email: _email.text.trim(),
+        password: _password.text.trim(),
+        role: widget.role,
+        displayName: _name.text.trim(),
+        extraFields: extra,
+      );
+
+      if (mounted) {
+        _show(widget.role == 'customer'
+            ? 'Signup successful — you are logged in'
+            : 'Signup successful — pending admin approval');
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AuthWrapper()),
+        );
+      }
     }
+  } catch (e) {
+    if (mounted) _show(e.toString());
+  } finally {
+    if (mounted) setState(() => _loading = false);
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

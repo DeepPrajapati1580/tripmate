@@ -46,43 +46,39 @@ class AuthService {
     }
   }
 
-  /// Sign in, validate role, and return AppUser
-  static Future<AppUser> signInWithRole(
-      String email, String password, String expectedRole) async {
-    try {
-      final cred = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      final uid = cred.user!.uid;
-      final doc = await _db.collection('users').doc(uid).get();
+static Future<AppUser?> signInWithRole(String email, String password, String role) async {
+  try {
+    final credential = await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    final user = credential.user;
 
-      if (!doc.exists) {
-        // profile missing → still signed in but incomplete profile
-        throw Exception("Profile not found for this account. Please complete signup.");
-      }
+    if (user != null) {
+      // 🔹 get user document reference
+      final docRef = _db.collection('users').doc(user.uid);
 
-      final data = doc.data()!;
-      final role = (data['role'] as String? ?? 'customer').toLowerCase();
-      final approved = (data['approved'] as bool?) ?? (role == 'customer');
+      // 🔹 update last login
+      await docRef.update({'lastLogin': FieldValue.serverTimestamp()});
 
-      if (role != expectedRole.toLowerCase()) {
+      // 🔹 fetch updated user document
+      final updatedDoc = await docRef.get();
+
+      final appUser = AppUser.fromDoc(updatedDoc);
+      if (appUser.role == role) {
+        return appUser;
+      } else {
         await _auth.signOut();
-        throw Exception(
-          'This account is registered as "$role". Please select that role to login.',
-        );
+        return null;
       }
-
-      if (!approved) {
-        // You can choose to block login here if needed
-        throw Exception("Your account is pending approval.");
-      }
-
-      return AppUser.fromDoc(doc);
-    } on FirebaseAuthException catch (e) {
-      throw Exception(e.message ?? 'Sign in failed');
     }
+  } catch (e) {
+    print("Error in signInWithRole: $e");
+    rethrow;
   }
+  return null;
+}
+
 
   static Future<void> signOut() => _auth.signOut();
 

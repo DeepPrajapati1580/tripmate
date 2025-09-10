@@ -6,6 +6,8 @@ class AppUser {
   final String role; // customer / agent / admin
   final String? name;
   final DateTime createdAt;
+  final bool approved;
+  final DateTime? lastLogin;
 
   AppUser({
     required this.id,
@@ -13,15 +15,18 @@ class AppUser {
     required this.role,
     this.name,
     required this.createdAt,
+    this.approved = false,
+    this.lastLogin,
   });
 
-  /// Copy user with modified fields
   AppUser copyWith({
     String? id,
     String? email,
     String? role,
     String? name,
     DateTime? createdAt,
+    bool? approved,
+    DateTime? lastLogin,
   }) {
     return AppUser(
       id: id ?? this.id,
@@ -29,23 +34,11 @@ class AppUser {
       role: role ?? this.role,
       name: name ?? this.name,
       createdAt: createdAt ?? this.createdAt,
+      approved: approved ?? this.approved,
+      lastLogin: lastLogin ?? this.lastLogin,
     );
   }
 
-  /// Convert to Firestore map
-  Map<String, dynamic> toMap() {
-    return {
-      'email': email,
-      'role': role,
-      'name': name,
-      'createdAt': Timestamp.fromDate(createdAt),
-    };
-  }
-
-  /// Convert to JSON (alias for toMap)
-  Map<String, dynamic> toJson() => toMap();
-
-  /// Create from Firestore DocumentSnapshot
   static AppUser fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     return AppUser(
@@ -53,41 +46,20 @@ class AppUser {
       email: data['email'] ?? '',
       role: data['role'] ?? 'customer',
       name: data['name'],
-      createdAt: (data['createdAt'] is Timestamp)
-          ? (data['createdAt'] as Timestamp).toDate()
-          : DateTime.now(),
+      createdAt: (data['createdAt'] is Timestamp) ? (data['createdAt'] as Timestamp).toDate() : DateTime.now(),
+      approved: (data['approved'] as bool?) ?? ((data['role'] as String?)?.toLowerCase() == 'customer'),
+      lastLogin: (data['lastLogin'] is Timestamp) ? (data['lastLogin'] as Timestamp).toDate() : null,
     );
   }
 
-  /// Create from raw Map
-  static AppUser fromMap(String id, Map<String, dynamic> data) {
-    return AppUser(
-      id: id,
-      email: data['email'] ?? '',
-      role: data['role'] ?? 'customer',
-      name: data['name'],
-      createdAt: (data['createdAt'] is Timestamp)
-          ? (data['createdAt'] as Timestamp).toDate()
-          : DateTime.now(),
-    );
-  }
-
-  /// Create from JSON
-  factory AppUser.fromJson(String id, Map<String, dynamic> json) {
-    return AppUser.fromMap(id, json);
-  }
-
-  /// Equality by user id
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) || (other is AppUser && id == other.id);
+  String toString() {
+    return 'AppUser(id: $id, email: $email, role: $role, name: $name, createdAt: $createdAt, approved: $approved, lastLogin: $lastLogin)';
+  }
+
+  @override
+  bool operator ==(Object other) => identical(this, other) || (other is AppUser && id == other.id);
 
   @override
   int get hashCode => id.hashCode;
-
-  /// Debug print
-  @override
-  String toString() {
-    return 'AppUser(id: $id, email: $email, role: $role, name: $name, createdAt: $createdAt)';
-  }
 }

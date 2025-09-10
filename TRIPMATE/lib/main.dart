@@ -24,7 +24,7 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Set Cloudinary
+
   CloudinaryContext.cloudinary = Cloudinary.fromCloudName(cloudName: 'dbdhnrhur');
 
   runApp(const TripMateApp());
