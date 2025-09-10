@@ -21,7 +21,7 @@ class AgentHome extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         elevation: 0,
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: Colors.teal,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -32,7 +32,7 @@ class AgentHome extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: Colors.teal,
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const TripFormPage()),
@@ -156,7 +156,7 @@ class AgentHome extends StatelessWidget {
                             Row(
                               children: [
                                 const Icon(Icons.calendar_today,
-                                    size: 16, color: Colors.deepPurple),
+                                    size: 16, color: Colors.teal),
                                 const SizedBox(width: 4),
                                 Text(
                                   "${t.startDate.day}/${t.startDate.month}/${t.startDate.year} - "
@@ -171,7 +171,7 @@ class AgentHome extends StatelessWidget {
                             Row(
                               children: [
                                 const Icon(Icons.people,
-                                    size: 16, color: Colors.deepPurple),
+                                    size: 16, color: Colors.teal),
                                 const SizedBox(width: 4),
                                 Text(
                                   "Capacity: ${t.capacity}, Booked: ${t.bookedSeats}",
@@ -191,14 +191,14 @@ class AgentHome extends StatelessWidget {
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.deepPurple,
+                                    color: Colors.teal,
                                   ),
                                 ),
                                 Row(
                                   children: [
                                     IconButton(
                                       icon: const Icon(Icons.edit,
-                                          color: Colors.blue),
+                                          color: Colors.teal),
                                       onPressed: () {
                                         Navigator.push(
                                           context,

@@ -79,7 +79,7 @@ class AdminHome extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
         actions: [
-          // 🔔 Notification Badge for Pending Agents
+          
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: agentsRef.snapshots(),
             builder: (context, snapshot) {

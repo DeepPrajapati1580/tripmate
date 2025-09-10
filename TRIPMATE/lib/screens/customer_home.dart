@@ -19,7 +19,7 @@ class _CustomerHomeState extends State<CustomerHome> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser; // 👈 get current user
+    final user = FirebaseAuth.instance.currentUser; 
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -37,7 +37,7 @@ class _CustomerHomeState extends State<CustomerHome> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => MyBookingsPage(userId: user.uid), // 👈 pass userId
+                    builder: (_) => MyBookingsPage(userId: user.uid), 
                   ),
                 );
               }
