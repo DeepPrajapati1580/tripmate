@@ -79,6 +79,54 @@ class AdminHome extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
         actions: [
+          // 🔔 Notification Badge for Pending Agents
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: agentsRef.snapshots(),
+            builder: (context, snapshot) {
+              final docs = snapshot.data?.docs ?? [];
+              final pending =
+                  docs.where((d) => (d.data()['approved'] as bool?) != true).length;
+
+              if (pending == 0) return const SizedBox();
+
+              return IconButton(
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.notifications),
+                    Positioned(
+                      right: -1,
+                      top: -1,
+                      child: CircleAvatar(
+                        radius: 8,
+                        backgroundColor: Colors.red,
+                        child: Text(
+                          pending.toString(),
+                          style: const TextStyle(
+                              fontSize: 10, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                tooltip: 'Pending Approvals',
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('You have $pending agent(s) pending approval'),
+                      action: SnackBarAction(
+                        label: "Review",
+                        onPressed: () {
+                          // Scroll to Travel Agents section
+                          // You could also navigate to a separate "Pending Approvals" screen if needed
+                        },
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',
