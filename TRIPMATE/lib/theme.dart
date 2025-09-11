@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
-  static const Color primary = Color(0xFF006D77);      // main teal
-  static const Color primaryLight = Color(0xFF83C5BE); // softer teal for cards
-  static const Color accent = Color(0xFFFF9F1C);       // orange CTA
-  static const Color dark = Color(0xFF023047);         // dark accent
-  static const Color bg = Color(0xFFF5F5F5);           // neutral background
-  static const Color text = Color(0xFF1B1B1B);         // main text
+  static const Color primary = Color(0xFF006D77);      
+  static const Color primaryLight = Color(0xFF83C5BE); 
+  static const Color accent = Color(0xFFFF9F1C);       
+  static const Color dark = Color(0xFF023047);         
+  static const Color bg = Color(0xFFF5F5F5);           
+  static const Color text = Color(0xFF1B1B1B);         
   static const Color muted = Color(0xFF6B7A86);
 }
 

@@ -117,8 +117,8 @@ class AdminHome extends StatelessWidget {
                       action: SnackBarAction(
                         label: "Review",
                         onPressed: () {
-                          // Scroll to Travel Agents section
-                          // You could also navigate to a separate "Pending Approvals" screen if needed
+                          
+                          
                         },
                       ),
                     ),

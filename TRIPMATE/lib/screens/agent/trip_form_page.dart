@@ -119,7 +119,7 @@ class _TripFormPageState extends State<TripFormPage> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.deepPurple),
+        borderSide: const BorderSide(color: Colors.teal),
       ),
     );
   }
@@ -129,7 +129,7 @@ class _TripFormPageState extends State<TripFormPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Create Trip Package"),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: Colors.teal,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -253,7 +253,7 @@ class _TripFormPageState extends State<TripFormPage> {
                           : const Icon(Icons.check_circle),
                       label: Text(_loading ? "Creating..." : "Create Package"),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
+                        backgroundColor: Colors.teal,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),

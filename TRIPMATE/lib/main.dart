@@ -12,7 +12,7 @@ import 'screens/admin_home.dart';
 import 'screens/auth_page.dart';
 import 'screens/reset_password_page.dart';
 import 'screens/auth/login_screen.dart';
-// Cloudinary packages
+
 import 'package:cloudinary_url_gen/cloudinary.dart';
 import 'package:cloudinary_flutter/cloudinary_context.dart';
 
@@ -67,11 +67,11 @@ class AuthWrapper extends StatelessWidget {
 
         final user = authSnap.data;
         if (user == null) {
-          // Not logged in → role selection
+          
           return const RoleSelectionPage();
         }
 
-        // User logged in → fetch Firestore profile
+        
         return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           future: FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
           builder: (context, docSnap) {
@@ -82,7 +82,7 @@ class AuthWrapper extends StatelessWidget {
             }
 
             if (!docSnap.hasData || !docSnap.data!.exists) {
-              // Profile not created → signup flow
+              
               return AuthPage(role: 'customer', isSignupFlow: true);
             }
 
@@ -90,12 +90,12 @@ class AuthWrapper extends StatelessWidget {
             final role = (data['role'] as String? ?? 'customer').toLowerCase();
             final approved = (data['approved'] as bool?) ?? false;
 
-            // If travel agent or admin and not approved → pending page
+           
             if ((role == 'travel_agent' || role == 'admin') && !approved) {
               return const PendingApprovalPage();
             }
 
-            // Redirect based on role
+           
             switch (role) {
               case 'admin':
                 return const AdminHome();

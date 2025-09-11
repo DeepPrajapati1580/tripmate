@@ -1,4 +1,4 @@
-// lib/screens/role_selection_page.dart
+
 import 'package:flutter/material.dart';
 import 'auth_page.dart';
 import '../theme.dart';
@@ -19,7 +19,7 @@ class RoleSelectionPage extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 26),
           child: Column(
             children: [
-              // logo (PNG) — use SvgPicture if you have SVG
+
               Image.asset('assets/images/TripMate_Logo.png', height: 86),
               const SizedBox(height: 12),
               Text('TripMate', style: theme.textTheme.displayLarge),
