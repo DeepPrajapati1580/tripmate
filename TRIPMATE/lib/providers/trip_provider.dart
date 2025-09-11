@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/trip_model.dart';
+import '../models/trip_package.dart';
 
 class TripProvider with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

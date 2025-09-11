@@ -6,8 +6,6 @@ import '../../models/trip_package.dart';
 import '../../services/trip_service.dart';
 import '../../services/payment_service.dart';
 import '../../services/booking_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 
 class TripListPage extends StatefulWidget {
   const TripListPage({super.key});
@@ -46,30 +44,24 @@ class _TripListPageState extends State<TripListPage> {
         razorpaySignature: response.signature ?? '',
       );
 
-      // ✅ increment bookedSeats in trip package
-      if (_pendingTripId != null && _pendingSeatsCount > 0) {
-        await TripService.update(_pendingTripId!, {
-          'bookedSeats': FieldValue.increment(_pendingSeatsCount),
-        });
-      }
-
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Payment successful')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment successful ✅')),
+        );
         setState(() {
           _pendingBookingId = null;
           _pendingTripId = null;
           _pendingSeatsCount = 0;
+          _seats = 1;
         });
       }
     }
   }
 
   void _handlePaymentError(PaymentFailureResponse response) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Payment failed: ${response.code}')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Payment failed: ${response.code}')),
+    );
   }
 
   void _handleExternalWallet(ExternalWalletResponse response) {
@@ -79,14 +71,8 @@ class _TripListPageState extends State<TripListPage> {
   }
 
   Future<void> _startCheckout(TripPackage trip) async {
-    final available = trip.capacity - trip.bookedSeats;
-    if (available <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No seats available')));
-      return;
-    }
-    if (_seats > available) {
+    final available = trip.capacity - (trip.bookedSeatsList?.length ?? 0);
+    if (_seats <= 0 || _seats > available) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Only $available seats available')),
       );
@@ -94,7 +80,7 @@ class _TripListPageState extends State<TripListPage> {
       return;
     }
 
-    final totalAmount = (trip.price * _seats).toInt();
+    final totalAmount = trip.price * _seats;
 
     try {
       final order = await PaymentService.createRazorpayOrder(
@@ -128,9 +114,9 @@ class _TripListPageState extends State<TripListPage> {
       _razorpay.open(options);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Checkout error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Checkout error: $e')),
+        );
       }
     }
   }
@@ -138,52 +124,50 @@ class _TripListPageState extends State<TripListPage> {
   @override
   Widget build(BuildContext context) {
     final dateFmt = DateFormat('d MMM yyyy');
+
     return Scaffold(
       appBar: AppBar(title: const Text('Available Trips')),
       body: StreamBuilder<List<TripPackage>>(
-        stream: TripService.streamAll(),
+        stream: TripService.streamAllTrips(), // Updated method to return Stream<List<TripPackage>>
         builder: (context, snap) {
-          if (!snap.hasData) {
+          if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          final trips = snap.data!;
-          if (trips.isEmpty) {
-            return const Center(child: Text('No trips listed yet'));
+
+          if (!snap.hasData || snap.data!.isEmpty) {
+            return const Center(child: Text('No trips available'));
           }
+
+          final trips = snap.data!;
           return ListView.builder(
             itemCount: trips.length,
-            itemBuilder: (c, i) {
-              final t = trips[i];
-              final available = t.capacity - t.bookedSeats;
+            itemBuilder: (context, index) {
+              final trip = trips[index];
+              final bookedSeats = trip.bookedSeatsList?.length ?? 0;
+              final available = trip.capacity - bookedSeats;
+
               return Card(
+                margin: const EdgeInsets.all(12),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        t.title,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
+                      Text(trip.title,
+                          style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 4),
                       Text(
-                        '${t.destination} • ${dateFmt.format(t.startDate)} - ${dateFmt.format(t.endDate)}',
-                      ),
+                          '${trip.destination} • ${dateFmt.format(trip.startDate)} - ${dateFmt.format(trip.endDate)}'),
                       const SizedBox(height: 6),
-                      Text(
-                        t.description,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      Text(trip.description,
+                          maxLines: 3, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 10),
-                      Text('Available: $available / ${t.capacity}'),
+                      Text('Available: $available / ${trip.capacity}'),
                       const SizedBox(height: 6),
                       Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              '₹ ${(t.price / 100).toStringAsFixed(0)} per seat',
-                            ),
+                            child: Text('₹ ${trip.price} per seat'),
                           ),
                           Row(
                             children: [
@@ -191,20 +175,19 @@ class _TripListPageState extends State<TripListPage> {
                                 icon: const Icon(Icons.remove_circle_outline),
                                 onPressed: available <= 0
                                     ? null
-                                    : () => setState(
-                                      () => _seats =
-                                  _seats > 1 ? _seats - 1 : 1,
-                                ),
+                                    : () => setState(() {
+                                  _seats = _seats > 1 ? _seats - 1 : 1;
+                                }),
                               ),
                               Text('$_seats'),
                               IconButton(
                                 icon: const Icon(Icons.add_circle_outline),
                                 onPressed: available <= 0
                                     ? null
-                                    : () => setState(
-                                      () => _seats =
-                                      (_seats + 1).clamp(1, available),
-                                ),
+                                    : () => setState(() {
+                                  _seats =
+                                      (_seats + 1).clamp(1, available);
+                                }),
                               ),
                             ],
                           ),
@@ -214,9 +197,8 @@ class _TripListPageState extends State<TripListPage> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: available <= 0
-                              ? null
-                              : () => _startCheckout(t),
+                          onPressed:
+                          available <= 0 ? null : () => _startCheckout(trip),
                           child: const Text('Book & Pay'),
                         ),
                       ),

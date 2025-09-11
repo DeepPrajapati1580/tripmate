@@ -1,4 +1,3 @@
-// lib/models/trip_package.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TripPackage {
@@ -8,13 +7,27 @@ class TripPackage {
   final String destination;
   final DateTime startDate;
   final DateTime endDate;
-  final int price;          // store in INR as integer
+  final int price; // store in INR as integer
   final int capacity;
-  final int bookedSeats;    // total count
-  final List<int> bookedSeatsList; // ✅ seat numbers
-  final String createdBy;   // uid of agent
+  final int bookedSeats; // total count
+  final List<int> bookedSeatsList; // ✅ seat numbers (keep for future use)
+  final String createdBy; // uid of agent
   final DateTime createdAt; // server time when created
-  final String? imageUrl;
+  final String? imageUrl; // main image
+  final String? imagePublicId; // ✅ Cloudinary public ID for deletion/update
+  final List<String>? gallery; // ✅ multiple images (view gallery)
+
+  // Hotel & extras
+  final String? hotelName; // e.g. Heritage Village Resort & Spa
+  final int? hotelStars; // e.g. 5
+  final List<String>? meals; // e.g. ["Breakfast", "Lunch"]
+  final List<String>? activities; // e.g. ["Boat Party", "Water Sports"]
+  final bool airportPickup; // pickup/drop availability
+  final List<Map<String, dynamic>>? itinerary;
+  // Each day has: { "day": 1, "date": "...", "title": "...", "meals": [...], "activities": [...] }
+
+  // ✅ New field: travellers
+  final List<Map<String, dynamic>> travellers;
 
   TripPackage({
     required this.id,
@@ -26,10 +39,19 @@ class TripPackage {
     required this.price,
     required this.capacity,
     required this.bookedSeats,
-    required this.bookedSeatsList, // ✅ new
+    required this.bookedSeatsList,
     required this.createdBy,
     required this.createdAt,
     this.imageUrl,
+    this.imagePublicId,
+    this.gallery,
+    this.hotelName,
+    this.hotelStars,
+    this.meals,
+    this.activities,
+    this.airportPickup = false,
+    this.itinerary,
+    required this.travellers,
   });
 
   factory TripPackage.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -47,11 +69,26 @@ class TripPackage {
       bookedSeatsList: (d['bookedSeatsList'] as List?)
           ?.map((e) => (e as num).toInt())
           .toList() ??
-          [], // ✅ handle null safely
+          [],
       createdBy: d['createdBy'] ?? '',
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ??
           DateTime.fromMillisecondsSinceEpoch(0),
       imageUrl: d['imageUrl'],
+      imagePublicId: d['imagePublicId'],
+      gallery: (d['gallery'] as List?)?.map((e) => e.toString()).toList(),
+      hotelName: d['hotelName'],
+      hotelStars: (d['hotelStars'] as num?)?.toInt(),
+      meals: (d['meals'] as List?)?.map((e) => e.toString()).toList(),
+      activities:
+      (d['activities'] as List?)?.map((e) => e.toString()).toList(),
+      airportPickup: d['airportPickup'] ?? false,
+      itinerary: (d['itinerary'] as List?)
+          ?.map((e) => Map<String, dynamic>.from(e))
+          .toList(),
+      travellers: (d['travellers'] as List?)
+          ?.map((e) => Map<String, dynamic>.from(e))
+          .toList() ??
+          [],
     );
   }
 
@@ -65,10 +102,19 @@ class TripPackage {
       'price': price,
       'capacity': capacity,
       'bookedSeats': bookedSeats,
-      'bookedSeatsList': bookedSeatsList, // ✅ save list too
+      'bookedSeatsList': bookedSeatsList,
       'createdBy': createdBy,
       'createdAt': Timestamp.fromDate(createdAt),
       'imageUrl': imageUrl,
+      'imagePublicId': imagePublicId,
+      'gallery': gallery,
+      'hotelName': hotelName,
+      'hotelStars': hotelStars,
+      'meals': meals,
+      'activities': activities,
+      'airportPickup': airportPickup,
+      'itinerary': itinerary,
+      'travellers': travellers,
     };
   }
 }

@@ -1,3 +1,4 @@
+// lib/screens/customer/trip_details_page.dart
 import 'package:flutter/material.dart';
 import 'package:tripmate/models/trip_package.dart';
 import 'package:tripmate/services/trip_service.dart';
@@ -25,22 +26,27 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
 
     setState(() => _loading = true);
     try {
+      // Map selected seats into travellers list
+      final travellers = _selectedSeats
+          .map((seatNo) => {'seatNumber': seatNo})
+          .toList();
+
       await TripService.bookTrip(
         tripId: widget.trip.id,
-        seats: _selectedSeats.toList(),
+        travellers: travellers,
         userId: FirebaseAuth.instance.currentUser!.uid,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Seats booked successfully")),
+          const SnackBar(content: Text("Seats booked successfully ✅")),
         );
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e")),
+          SnackBar(content: Text("Booking failed: $e")),
         );
       }
     } finally {
@@ -52,6 +58,13 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
   Widget build(BuildContext context) {
     final totalSeats = widget.trip.capacity;
     final bookedSeatsList = widget.trip.bookedSeatsList ?? [];
+    final availableSeats = totalSeats - bookedSeatsList.length;
+
+    // Responsive seat grid calculation
+    final screenWidth = MediaQuery.of(context).size.width;
+    final seatSize = 50.0;
+    final crossAxisCount = screenWidth ~/ (seatSize + 8);
+    final seatsPerRow = crossAxisCount > 0 ? crossAxisCount : 5;
 
     return Scaffold(
       appBar: AppBar(
@@ -60,7 +73,7 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
       ),
       body: Column(
         children: [
-          // 🟢 Trip Info Header
+          // Trip Info
           Card(
             margin: const EdgeInsets.all(12),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -83,32 +96,23 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
                   const SizedBox(height: 12),
                   Text(
                     widget.trip.title,
-                    style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    "Destination: ${widget.trip.destination}",
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                  Text("Destination: ${widget.trip.destination}",
+                      style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 6),
-                  Text(
-                    "Dates: ${widget.trip.startDate} - ${widget.trip.endDate}",
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
+                  Text("Dates: ${widget.trip.startDate} - ${widget.trip.endDate}",
+                      style: const TextStyle(fontSize: 14, color: Colors.grey)),
                   const SizedBox(height: 6),
-                  Text(
-                    "Price per seat: ₹${widget.trip.price}",
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                  ),
+                  Text("Price per seat: ₹${widget.trip.price}",
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 6),
-                  Text(
-                    "Available Seats: ${totalSeats - bookedSeatsList.length}",
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                  Text("Available Seats: $availableSeats",
+                      style: const TextStyle(fontSize: 16)),
                   if (_selectedSeats.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
+                      padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         "Selected Seats: ${_selectedSeats.join(', ')}",
                         style: const TextStyle(
@@ -133,16 +137,17 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
           ),
           const SizedBox(height: 8),
 
-          // ✅ Seat Grid
+          // Seat Grid
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: GridView.builder(
                 itemCount: totalSeats,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 5,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: seatsPerRow,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 1,
                 ),
                 itemBuilder: (context, index) {
                   final seatNo = index + 1;
@@ -170,7 +175,7 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
                       setState(() {
                         if (isSelected) {
                           _selectedSeats.remove(seatNo);
-                        } else {
+                        } else if (_selectedSeats.length < availableSeats) {
                           _selectedSeats.add(seatNo);
                         }
                       });
@@ -181,18 +186,14 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.black26),
                         boxShadow: [
-                          if (!isBooked)
-                            const BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 2,
-                                offset: Offset(1, 1))
+                          if (!isBooked) const BoxShadow(
+                              color: Colors.black12, blurRadius: 2, offset: Offset(1, 1))
                         ],
                       ),
                       child: Center(
                         child: Text(
                           "$seatNo",
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, color: textColor),
+                          style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
                         ),
                       ),
                     ),
@@ -202,7 +203,7 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
             ),
           ),
 
-          // ✅ Book Button
+          // Book Button
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: SizedBox(
@@ -211,8 +212,7 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
                 onPressed: _loading ? null : _bookSeats,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: _loading
                     ? const CircularProgressIndicator(color: Colors.white)

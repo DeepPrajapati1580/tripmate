@@ -1,47 +1,48 @@
-// lib/services/trip_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/trip_package.dart';
 
-
 class TripService {
-  static final _col =
-  FirebaseFirestore.instance.collection('trip_packages')
-      .withConverter<Map<String, dynamic>>(
-    fromFirestore: (snap, _) => snap.data() ?? {},
-    toFirestore: (data, _) => data,
-  );
+  static final _col = FirebaseFirestore.instance.collection('trip_packages');
 
-  /// Stream ALL packages (for customers).
-  static Stream<List<TripPackage>> streamAll({bool onlyUpcoming = true}) {
-    return _col.orderBy('createdAt', descending: true).snapshots().map((snap) {
-      final items = snap.docs
-          .map((d) =>
-          TripPackage.fromDoc(d as DocumentSnapshot<Map<String, dynamic>>))
-          .toList();
 
-      if (!onlyUpcoming) return items;
+  /// ✅ Stream trips created by a specific agent
+  static Stream<List<TripPackage>> streamByAgent(
+      String agentId, {
+        bool onlyUpcoming = false,
+      }) {
+    Query<Map<String, dynamic>> query =
+    _col.where('createdBy', isEqualTo: agentId);
 
-      final now = DateTime.now();
-      return items
-          .where((t) => !t.endDate
-          .isBefore(DateTime(now.year, now.month, now.day)))
-          .toList();
-    });
+    // Filter only upcoming trips
+    if (onlyUpcoming) {
+      query = query.where('endDate',
+          isGreaterThan: Timestamp.fromDate(DateTime.now()));
+    }
+
+    return query.snapshots().map(
+          (snap) => snap.docs.map((doc) => TripPackage.fromDoc(doc)).toList(),
+    );
   }
 
-  /// Stream packages created by a specific agent uid
-  static Stream<List<TripPackage>> streamByAgent(String uid) {
-    return _col
-        .where('createdBy', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs
-        .map((d) =>
-        TripPackage.fromDoc(d as DocumentSnapshot<Map<String, dynamic>>))
-        .toList());
+  /// ✅ Stream all trips for customers
+  static Stream<List<TripPackage>> streamAllTrips({bool onlyUpcoming = false}) {
+    Query<Map<String, dynamic>> query = _col;
+
+    if (onlyUpcoming) {
+      query = query.where(
+        'endDate',
+        isGreaterThan: Timestamp.fromDate(DateTime.now()),
+      );
+    }
+
+    return query.snapshots().map(
+          (snap) => snap.docs.map((doc) => TripPackage.fromDoc(doc)).toList(),
+    );
   }
 
-  /// 🔹 Create a new trip package (for admin/agent)
+
+
+  /// ✅ Create new trip
   static Future<void> create({
     required String title,
     required String description,
@@ -51,8 +52,15 @@ class TripService {
     required int price,
     required int capacity,
     required String createdBy,
-    String? imageUrl,       // 👈 Already uploaded Cloudinary URL
-    String? imagePublicId,  // 👈 Already uploaded Cloudinary publicId
+    String? imageUrl,
+    String? imagePublicId, // 👈 Cloudinary public ID
+    List<String>? gallery,
+    String? hotelName,
+    int? hotelStars,
+    List<String>? meals,
+    List<String>? activities,
+    bool airportPickup = false,
+    List<Map<String, dynamic>>? itinerary,
   }) async {
     await _col.add({
       'title': title,
@@ -63,17 +71,70 @@ class TripService {
       'price': price,
       'capacity': capacity,
       'bookedSeats': 0,
+      'bookedSeatsList': [],
       'createdBy': createdBy,
       'createdAt': FieldValue.serverTimestamp(),
       'imageUrl': imageUrl,
       'imagePublicId': imagePublicId,
+      'gallery': gallery,
+      'hotelName': hotelName,
+      'hotelStars': hotelStars,
+      'meals': meals,
+      'activities': activities,
+      'airportPickup': airportPickup,
+      'itinerary': itinerary,
+      'travellers': [],
     });
   }
 
-  /// ✅ Book trip with seat numbers
+  /// ✅ Update existing trip
+  static Future<void> update({
+    required String tripId,
+    String? title,
+    String? description,
+    String? destination,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? price,
+    int? capacity,
+    String? imageUrl,
+    String? imagePublicId,
+    List<String>? gallery,
+    String? hotelName,
+    int? hotelStars,
+    List<String>? meals,
+    List<String>? activities,
+    bool? airportPickup,
+    List<Map<String, dynamic>>? itinerary,
+  }) async {
+    final Map<String, dynamic> updates = {
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (title != null) updates['title'] = title;
+    if (description != null) updates['description'] = description;
+    if (destination != null) updates['destination'] = destination;
+    if (startDate != null) updates['startDate'] = Timestamp.fromDate(startDate);
+    if (endDate != null) updates['endDate'] = Timestamp.fromDate(endDate);
+    if (price != null) updates['price'] = price;
+    if (capacity != null) updates['capacity'] = capacity;
+    if (imageUrl != null) updates['imageUrl'] = imageUrl;
+    if (imagePublicId != null) updates['imagePublicId'] = imagePublicId;
+    if (gallery != null) updates['gallery'] = gallery;
+    if (hotelName != null) updates['hotelName'] = hotelName;
+    if (hotelStars != null) updates['hotelStars'] = hotelStars;
+    if (meals != null) updates['meals'] = meals;
+    if (activities != null) updates['activities'] = activities;
+    if (airportPickup != null) updates['airportPickup'] = airportPickup;
+    if (itinerary != null) updates['itinerary'] = itinerary;
+
+    await _col.doc(tripId).update(updates);
+  }
+
+  /// ✅ Book trip with traveller details
   static Future<void> bookTrip({
     required String tripId,
-    required List<int> seats,
+    required List<Map<String, dynamic>> travellers, // 👈
     required String userId,
   }) async {
     final tripRef = _col.doc(tripId);
@@ -87,53 +148,45 @@ class TripService {
       final data = snapshot.data() as Map<String, dynamic>;
       final bookedSeats = (data['bookedSeats'] as num?)?.toInt() ?? 0;
       final capacity = (data['capacity'] as num?)?.toInt() ?? 0;
-      final bookedSeatsList = (data['bookedSeatsList'] as List?)
-          ?.map((e) => (e as num).toInt())
-          .toList() ?? [];
 
-      // check if requested seats are already taken
-      for (final seat in seats) {
-        if (bookedSeatsList.contains(seat)) {
-          throw Exception("Seat $seat is already booked");
-        }
-      }
-
-      if (bookedSeats + seats.length > capacity) {
+      if (bookedSeats + travellers.length > capacity) {
         throw Exception("Not enough seats available");
       }
 
-      // ✅ Update trip's booked seats
+      // ✅ Update trip with travellers
       txn.update(tripRef, {
-        'bookedSeats': bookedSeats + seats.length,
-        'bookedSeatsList': FieldValue.arrayUnion(seats),
+        'bookedSeats': bookedSeats + travellers.length,
+        'travellers': FieldValue.arrayUnion(travellers),
       });
     });
 
-    // ✅ Create a booking document for the user
+    // ✅ Create booking record
     final tripSnapshot = await tripRef.get();
     final tripData = tripSnapshot.data() as Map<String, dynamic>;
 
     await FirebaseFirestore.instance.collection('bookings').add({
       'tripPackageId': tripId,
       'userId': userId,
-      'seats': seats.length,
-      'amount': seats.length * (tripData['price'] ?? 0),
-      'status': 'pending', // change to 'paid' if payment is integrated
+      'travellers': travellers,
+      'seats': travellers.length,
+      'amount': travellers.length * (tripData['price'] ?? 0),
+      'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
-  /// Update a package
-  static Future<void> update(String id, Map<String, dynamic> data) async {
-    final docRef = _col.doc(id);
-    final doc = await docRef.get();
 
-    if (doc.exists) {
-      await docRef.update(data);
-    } else {
-      throw Exception("Trip with id $id does not exist");
-    }
+  /// ✅ Get all trips
+  static Stream<QuerySnapshot<Map<String, dynamic>>> getTrips() {
+    return _col.snapshots();
   }
 
-  /// Delete a package
-  static Future<void> delete(String id) => _col.doc(id).delete();
+  /// ✅ Get one trip
+  static Future<DocumentSnapshot<Map<String, dynamic>>> getTrip(String id) {
+    return _col.doc(id).get();
+  }
+
+  /// ✅ Delete a trip
+  static Future<void> delete(String id) async {
+    await _col.doc(id).delete();
+  }
 }

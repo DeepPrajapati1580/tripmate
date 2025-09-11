@@ -75,7 +75,7 @@ class _CustomerHomeState extends State<CustomerHome> {
             // 📦 Trip List
             Expanded(
               child: StreamBuilder<List<TripPackage>>(
-                stream: TripService.streamAll(onlyUpcoming: true),
+                stream: TripService.streamAllTrips(onlyUpcoming: true),
                 builder: (_, snap) {
                   if (snap.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());

@@ -30,15 +30,25 @@ class _TripEditPageState extends State<TripEditPage> {
   late TextEditingController _destCtrl;
   late TextEditingController _priceCtrl;
   late TextEditingController _capacityCtrl;
+  late TextEditingController _hotelNameCtrl;
+  late TextEditingController _hotelStarsCtrl;
+  late TextEditingController _mealsCtrl;
+  late TextEditingController _activitiesCtrl;
 
   DateTime? _startDate, _endDate;
 
-  File? _selectedImage;
-  Uint8List? _selectedImageBytes;
-  String? _selectedImageName;
+  File? _coverImage;
+  Uint8List? _coverImageBytes;
+  String? _coverImageName;
+  String? _existingCoverUrl;
 
-  String? _existingImageUrl;
-  String? _existingImagePublicId;
+  List<File> _galleryImages = [];
+  List<String> _existingGalleryUrls = [];
+
+  bool _airportPickup = false;
+
+  // Itinerary
+  List<Map<String, TextEditingController>> _itinerary = [];
 
   bool _loading = false;
 
@@ -46,22 +56,63 @@ class _TripEditPageState extends State<TripEditPage> {
   void initState() {
     super.initState();
     final data = widget.existingData;
+
     _titleCtrl = TextEditingController(text: data["title"]);
     _descCtrl = TextEditingController(text: data["description"]);
     _destCtrl = TextEditingController(text: data["destination"]);
     _priceCtrl = TextEditingController(text: data["price"].toString());
     _capacityCtrl = TextEditingController(text: data["capacity"].toString());
+    _hotelNameCtrl = TextEditingController(text: data["hotelName"] ?? "");
+    _hotelStarsCtrl =
+        TextEditingController(text: data["hotelStars"]?.toString() ?? "");
+    _mealsCtrl =
+        TextEditingController(text: (data["meals"] ?? []).join(", "));
+    _activitiesCtrl =
+        TextEditingController(text: (data["activities"] ?? []).join(", "));
+
+    _airportPickup = data["airportPickup"] ?? false;
 
     final start = data["startDate"] as Timestamp?;
     final end = data["endDate"] as Timestamp?;
     _startDate = start?.toDate();
     _endDate = end?.toDate();
 
-    _existingImageUrl = data["imageUrl"];
-    _existingImagePublicId = data["imagePublicId"];
+    _existingCoverUrl = data["imageUrl"];
+    _existingGalleryUrls = List<String>.from(data["gallery"] ?? []);
+
+    // Load itinerary
+    final itinerary = List<Map<String, dynamic>>.from(data["itinerary"] ?? []);
+    for (var day in itinerary) {
+      _itinerary.add({
+        "day": TextEditingController(text: day["day"].toString()),
+        "description": TextEditingController(text: day["description"] ?? ""),
+        "meals":
+        TextEditingController(text: (day["meals"] ?? []).join(", ")),
+        "activities":
+        TextEditingController(text: (day["activities"] ?? []).join(", ")),
+      });
+    }
   }
 
-  Future<void> _pickImage() async {
+  void _addItineraryDay() {
+    setState(() {
+      _itinerary.add({
+        "day": TextEditingController(),
+        "description": TextEditingController(),
+        "meals": TextEditingController(),
+        "activities": TextEditingController(),
+      });
+    });
+  }
+
+  void _removeItineraryDay(int index) {
+    setState(() {
+      _itinerary[index].values.forEach((c) => c.dispose());
+      _itinerary.removeAt(index);
+    });
+  }
+
+  Future<void> _pickCoverImage() async {
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(source: ImageSource.gallery);
@@ -70,26 +121,37 @@ class _TripEditPageState extends State<TripEditPage> {
         if (kIsWeb) {
           final bytes = await picked.readAsBytes();
           setState(() {
-            _selectedImageBytes = bytes;
-            _selectedImageName = picked.name;
-            _selectedImage = null;
-            _existingImageUrl = null;
+            _coverImageBytes = bytes;
+            _coverImageName = picked.name;
+            _coverImage = null;
+            _existingCoverUrl = null;
           });
         } else {
           final tempDir = await getTemporaryDirectory();
-          final file = await File(picked.path).copy('${tempDir.path}/${picked.name}');
+          final file = await File(picked.path)
+              .copy('${tempDir.path}/${picked.name}');
           setState(() {
-            _selectedImage = file;
-            _selectedImageBytes = null;
-            _selectedImageName = null;
-            _existingImageUrl = null;
+            _coverImage = file;
+            _coverImageBytes = null;
+            _coverImageName = null;
+            _existingCoverUrl = null;
           });
         }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to pick image: $e")),
+        SnackBar(content: Text("Failed to pick cover image: $e")),
       );
+    }
+  }
+
+  Future<void> _pickGalleryImages() async {
+    final picker = ImagePicker();
+    final pickedList = await picker.pickMultiImage();
+    if (pickedList.isNotEmpty) {
+      setState(() {
+        _galleryImages.addAll(pickedList.map((e) => File(e.path)));
+      });
     }
   }
 
@@ -114,7 +176,9 @@ class _TripEditPageState extends State<TripEditPage> {
   }
 
   Future<void> _updateTrip() async {
-    if (!_formKey.currentState!.validate() || _startDate == null || _endDate == null) {
+    if (!_formKey.currentState!.validate() ||
+        _startDate == null ||
+        _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all fields and pick dates")),
       );
@@ -124,35 +188,79 @@ class _TripEditPageState extends State<TripEditPage> {
     setState(() => _loading = true);
 
     try {
-      String? imageUrl = _existingImageUrl;
-      String? publicId = _existingImagePublicId;
+      String? coverImageUrl = _existingCoverUrl;
+      List<String> galleryUrls = List.from(_existingGalleryUrls);
 
-      if (_selectedImage != null || (_selectedImageBytes != null && _selectedImageName != null)) {
+      // Upload cover image if changed
+      if (_coverImage != null ||
+          (_coverImageBytes != null && _coverImageName != null)) {
         Map<String, String> uploadRes;
 
         if (kIsWeb) {
           uploadRes = await CloudinaryUploader.uploadImage(
-            fileBytes: _selectedImageBytes,
-            fileName: _selectedImageName,
+            fileBytes: _coverImageBytes,
+            fileName: _coverImageName,
           );
         } else {
-          uploadRes = await CloudinaryUploader.uploadImage(filePath: _selectedImage!.path);
+          uploadRes =
+          await CloudinaryUploader.uploadImage(filePath: _coverImage!.path);
         }
 
-        imageUrl = uploadRes["secure_url"];
-        publicId = uploadRes["publicId"];
+        coverImageUrl = uploadRes["secure_url"];
       }
 
-      await FirebaseFirestore.instance.collection("trip_packages").doc(widget.tripId).update({
-        "title": _titleCtrl.text,
-        "description": _descCtrl.text,
-        "destination": _destCtrl.text,
+      // Upload new gallery images
+      for (var img in _galleryImages) {
+        final res =
+        await CloudinaryUploader.uploadImage(filePath: img.path);
+        final url = res["secure_url"];
+        if (url != null) galleryUrls.add(url);
+      }
+
+      // Build itinerary list
+      final List<Map<String, dynamic>> itinerary = _itinerary.map((dayCtrl) {
+        return {
+          "day": int.tryParse(dayCtrl["day"]!.text.trim()) ?? 0,
+          "description": dayCtrl["description"]!.text.trim(),
+          "meals": dayCtrl["meals"]!.text.isNotEmpty
+              ? dayCtrl["meals"]!.text
+              .split(",")
+              .map((e) => e.trim())
+              .toList()
+              : <String>[],
+          "activities": dayCtrl["activities"]!.text.isNotEmpty
+              ? dayCtrl["activities"]!.text
+              .split(",")
+              .map((e) => e.trim())
+              .toList()
+              : <String>[],
+        };
+      }).toList();
+
+      await FirebaseFirestore.instance
+          .collection("trip_packages")
+          .doc(widget.tripId)
+          .update({
+        "title": _titleCtrl.text.trim(),
+        "description": _descCtrl.text.trim(),
+        "destination": _destCtrl.text.trim(),
         "startDate": _startDate,
         "endDate": _endDate,
-        "price": int.parse(_priceCtrl.text),
-        "capacity": int.parse(_capacityCtrl.text),
-        "imageUrl": imageUrl,
-        "imagePublicId": publicId,
+        "price": int.parse(_priceCtrl.text.trim()),
+        "capacity": int.parse(_capacityCtrl.text.trim()),
+        "imageUrl": coverImageUrl,
+        "gallery": galleryUrls,
+        "hotelName": _hotelNameCtrl.text.trim(),
+        "hotelStars":
+        int.tryParse(_hotelStarsCtrl.text.trim()) ?? null,
+        "meals": _mealsCtrl.text.isNotEmpty
+            ? _mealsCtrl.text.split(",").map((e) => e.trim()).toList()
+            : [],
+        "activities": _activitiesCtrl.text.isNotEmpty
+            ? _activitiesCtrl.text.split(",").map((e) => e.trim()).toList()
+            : [],
+        "airportPickup": _airportPickup,
+        "itinerary": itinerary,
         "updatedAt": FieldValue.serverTimestamp(),
       });
 
@@ -173,6 +281,22 @@ class _TripEditPageState extends State<TripEditPage> {
     }
   }
 
+  InputDecoration _inputDecoration(String label, {IconData? icon}) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: icon != null ? Icon(icon) : null,
+      filled: true,
+      fillColor: Colors.grey[100],
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.teal),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final df = DateFormat.yMMMd();
@@ -183,159 +307,250 @@ class _TripEditPageState extends State<TripEditPage> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Card(
-          elevation: 3,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              TextFormField(
+                controller: _titleCtrl,
+                decoration: _inputDecoration("Title", icon: Icons.title),
+                validator: (v) => v!.isEmpty ? "Enter title" : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _descCtrl,
+                maxLines: 3,
+                decoration:
+                _inputDecoration("Description", icon: Icons.description),
+                validator: (v) => v!.isEmpty ? "Enter description" : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _destCtrl,
+                decoration:
+                _inputDecoration("Destination", icon: Icons.place),
+                validator: (v) => v!.isEmpty ? "Enter destination" : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _priceCtrl,
+                keyboardType: TextInputType.number,
+                decoration: _inputDecoration("Price (₹)",
+                    icon: Icons.currency_rupee),
+                validator: (v) => v!.isEmpty ? "Enter price" : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _capacityCtrl,
+                keyboardType: TextInputType.number,
+                decoration:
+                _inputDecoration("Capacity", icon: Icons.people),
+                validator: (v) => v!.isEmpty ? "Enter capacity" : null,
+              ),
+              const SizedBox(height: 12),
+
+              // Hotel & extras
+              TextFormField(
+                controller: _hotelNameCtrl,
+                decoration: _inputDecoration("Hotel Name", icon: Icons.hotel),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _hotelStarsCtrl,
+                keyboardType: TextInputType.number,
+                decoration: _inputDecoration("Hotel Stars (1–5)",
+                    icon: Icons.star),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _mealsCtrl,
+                decoration: _inputDecoration("Meals (comma separated)",
+                    icon: Icons.restaurant),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _activitiesCtrl,
+                decoration: _inputDecoration("Activities (comma separated)",
+                    icon: Icons.local_activity),
+              ),
+              const SizedBox(height: 12),
+
+              SwitchListTile(
+                value: _airportPickup,
+                onChanged: (v) => setState(() => _airportPickup = v),
+                title: const Text("Airport Pickup Available"),
+                activeColor: Colors.teal,
+              ),
+
+              // Itinerary
+              const SizedBox(height: 16),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text("Itinerary",
+                    style:
+                    TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 8),
+              Column(
+                children: List.generate(_itinerary.length, (i) {
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _itinerary[i]["day"],
+                                  decoration: _inputDecoration("Day"),
+                                  keyboardType: TextInputType.number,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => _removeItineraryDay(i),
+                                icon: const Icon(Icons.delete,
+                                    color: Colors.red),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _itinerary[i]["description"],
+                            decoration:
+                            _inputDecoration("Description"),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _itinerary[i]["meals"],
+                            decoration: _inputDecoration("Meals"),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _itinerary[i]["activities"],
+                            decoration: _inputDecoration("Activities"),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _addItineraryDay,
+                  icon: const Icon(Icons.add, color: Colors.teal),
+                  label: const Text("Add Day",
+                      style: TextStyle(color: Colors.teal)),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+              Row(
                 children: [
-                  // Title
-                  TextFormField(
-                    controller: _titleCtrl,
-                    decoration: InputDecoration(
-                      labelText: "Title",
-                      prefixIcon: const Icon(Icons.title),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.date_range),
+                      label: Text(_startDate == null
+                          ? "Pick Start Date"
+                          : "Start: ${df.format(_startDate!)}"),
+                      onPressed: _pickStartDate,
                     ),
-                    validator: (v) => v!.isEmpty ? "Enter title" : null,
                   ),
-                  const SizedBox(height: 12),
-
-                  // Description
-                  TextFormField(
-                    controller: _descCtrl,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: "Description",
-                      prefixIcon: const Icon(Icons.description),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    validator: (v) => v!.isEmpty ? "Enter description" : null,
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Destination
-                  TextFormField(
-                    controller: _destCtrl,
-                    decoration: InputDecoration(
-                      labelText: "Destination",
-                      prefixIcon: const Icon(Icons.location_on),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    validator: (v) => v!.isEmpty ? "Enter destination" : null,
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Price
-                  TextFormField(
-                    controller: _priceCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: "Price (₹)",
-                      prefixIcon: const Icon(Icons.currency_rupee),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    validator: (v) => v!.isEmpty ? "Enter price" : null,
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Capacity
-                  TextFormField(
-                    controller: _capacityCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: "Capacity",
-                      prefixIcon: const Icon(Icons.people),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    validator: (v) => v!.isEmpty ? "Enter capacity" : null,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Dates
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.date_range),
-                          label: Text(
-                            _startDate == null ? "Pick Start Date" : "Start: ${df.format(_startDate!)}",
-                          ),
-                          onPressed: _pickStartDate,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.event),
-                          label: Text(
-                            _endDate == null ? "Pick End Date" : "End: ${df.format(_endDate!)}",
-                          ),
-                          onPressed: _pickEndDate,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Image
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: _pickImage,
-                        icon: const Icon(Icons.image),
-                        label: const Text("Pick Image"),
-                      ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: _selectedImage != null
-                            ? Image.file(_selectedImage!, height: 150, width: double.infinity, fit: BoxFit.cover)
-                            : _selectedImageBytes != null
-                            ? Image.memory(_selectedImageBytes!, height: 150, width: double.infinity, fit: BoxFit.cover)
-                            : _existingImageUrl != null
-                            ? Image.network(_existingImageUrl!, height: 150, width: double.infinity, fit: BoxFit.cover)
-                            : Container(
-                          height: 150,
-                          width: double.infinity,
-                          color: Colors.grey.shade200,
-                          child: const Center(child: Text("No Image Selected")),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Update Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: _loading ? null : _updateTrip,
-                      icon: _loading
-                          ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                          : const Icon(Icons.save),
-                      label: Text(
-                        _loading ? "Updating..." : "Update Package",
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.event),
+                      label: Text(_endDate == null
+                          ? "Pick End Date"
+                          : "End: ${df.format(_endDate!)}"),
+                      onPressed: _pickEndDate,
                     ),
                   ),
                 ],
               ),
-            ),
+
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: _pickCoverImage,
+                child: Container(
+                  height: 150,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: _coverImage != null
+                      ? Image.file(_coverImage!, fit: BoxFit.cover)
+                      : _coverImageBytes != null
+                      ? Image.memory(_coverImageBytes!,
+                      fit: BoxFit.cover)
+                      : _existingCoverUrl != null
+                      ? Image.network(_existingCoverUrl!,
+                      fit: BoxFit.cover)
+                      : const Center(
+                      child: Text("Tap to select Cover Image")),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _pickGalleryImages,
+                  icon: const Icon(Icons.photo_library,
+                      color: Colors.teal),
+                  label: const Text("Add Gallery Images",
+                      style: TextStyle(color: Colors.teal)),
+                ),
+              ),
+              if (_existingGalleryUrls.isNotEmpty ||
+                  _galleryImages.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ..._existingGalleryUrls.map((url) => ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(url,
+                          width: 80, height: 80, fit: BoxFit.cover),
+                    )),
+                    ..._galleryImages.map((file) => ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(file,
+                          width: 80, height: 80, fit: BoxFit.cover),
+                    )),
+                  ],
+                ),
+
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: _loading ? null : _updateTrip,
+                  icon: _loading
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  )
+                      : const Icon(Icons.save),
+                  label: Text(
+                    _loading ? "Updating..." : "Update Package",
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
