@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/trip_package.dart';
 import '../../models/booking.dart';
-import '../../widgets/itinerary_day_widget.dart';
 
 class MyBookingDetailsPage extends StatelessWidget {
   final TripPackage trip;

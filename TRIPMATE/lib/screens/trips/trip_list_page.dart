@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../models/trip_package.dart';
 import '../../services/trip_service.dart';
-import '../../services/payment_service.dart';
+import '../../services/razorpay_service.dart';
 import '../../services/booking_service.dart';
 import '../../widgets/trip_card.dart';
 

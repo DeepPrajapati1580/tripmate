@@ -166,7 +166,7 @@ class TripCard extends StatelessWidget {
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
-                      children: trip.activities!
+                      children: trip.activities
                           .map((a) => Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(

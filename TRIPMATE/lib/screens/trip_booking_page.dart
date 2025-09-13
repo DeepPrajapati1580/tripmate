@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../models/trip_package.dart';
 import '../../services/booking_service.dart';
+import '../../services/razorpay_service.dart'; // 👈 added
 
 class TripBookingPage extends StatefulWidget {
   final TripPackage trip;
@@ -26,11 +27,15 @@ class _TripBookingPageState extends State<TripBookingPage> {
   void initState() {
     super.initState();
     _nameControllers = [];
+    RazorpayService.init(context); // 👈 init Razorpay
   }
 
   @override
   void dispose() {
-    for (var c in _nameControllers) c.dispose();
+    for (var c in _nameControllers) {
+      c.dispose();
+    }
+    RazorpayService.dispose(); // 👈 clear listeners
     super.dispose();
   }
 
@@ -38,7 +43,7 @@ class _TripBookingPageState extends State<TripBookingPage> {
     if (_nameControllers.length < totalSelectedSeats) {
       _nameControllers.addAll(List.generate(
           totalSelectedSeats - _nameControllers.length,
-              (_) => TextEditingController()));
+          (_) => TextEditingController()));
     } else if (_nameControllers.length > totalSelectedSeats) {
       _nameControllers = _nameControllers.sublist(0, totalSelectedSeats);
     }
@@ -76,9 +81,9 @@ class _TripBookingPageState extends State<TripBookingPage> {
 
     try {
       final travellers = List.generate(totalSelectedSeats, (i) => {
-        'seatNumber': i + 1,
-        'name': _nameControllers[i].text.trim(),
-      });
+            'seatNumber': i + 1,
+            'name': _nameControllers[i].text.trim(),
+          });
 
       await BookingService.createPendingBooking(
         tripPackageId: widget.trip.id,
@@ -166,8 +171,8 @@ class _TripBookingPageState extends State<TripBookingPage> {
                     const SizedBox(height: 6),
                     Text(
                         "Dates: ${widget.trip.startDate.toString().split(' ').first} - ${widget.trip.endDate.toString().split(' ').first}",
-                        style:
-                        const TextStyle(fontSize: 14, color: Colors.grey)),
+                        style: const TextStyle(
+                            fontSize: 14, color: Colors.grey)),
                     const SizedBox(height: 6),
                     Text("Price per seat: ₹${widget.trip.price}",
                         style: const TextStyle(
@@ -230,25 +235,61 @@ class _TripBookingPageState extends State<TripBookingPage> {
                 ),
               ),
 
-            // Book Button
+            // --- Book & Pay Button ---
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _loading ? null : _bookRooms,
+                  onPressed: () async {
+                    if (totalSelectedSeats == 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text("Select seats before payment")),
+                      );
+                      return;
+                    }
+
+                    try {
+                      final order = await RazorpayService.createOrder(
+                        amount: widget.trip.price * totalSelectedSeats,
+                        receipt: 'trip_${widget.trip.id}',
+                      );
+
+                      await RazorpayService.openCheckout(
+                        amount: widget.trip.price * totalSelectedSeats,
+                        orderId: order?['id'],
+                        name: widget.trip.title,
+                        description:
+                            'Booking for ${widget.trip.title} ($totalSelectedSeats seats)',
+                        prefill: {
+                          'contact': '', // fill from logged-in user if available
+                          'email': '',
+                        },
+                      );
+                    } catch (e) {
+                      await RazorpayService.openCheckout(
+                        amount: widget.trip.price * totalSelectedSeats,
+                        name: widget.trip.title,
+                        description:
+                            'Booking for ${widget.trip.title} ($totalSelectedSeats seats)',
+                        prefill: {
+                          'contact': '',
+                          'email': '',
+                        },
+                      );
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor: Colors.teal,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: _loading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : Text(
+                  child: Text(
                     totalSelectedSeats == 0
-                        ? "Book Now"
-                        : "Book $totalSelectedSeats Seat(s)",
+                        ? "Book & Pay"
+                        : "Book & Pay ₹${widget.trip.price * totalSelectedSeats}",
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),

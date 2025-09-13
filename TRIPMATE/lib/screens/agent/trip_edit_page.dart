@@ -230,7 +230,7 @@ class _TripEditPageState extends State<TripEditPage> {
             activitiesCtrl: activitiesCtrl,
             onRemove: () => setState(() => _itinerary.removeAt(index)),
           );
-        }).toList(),
+        }),
         const SizedBox(height: 8),
         ElevatedButton(
           onPressed: () {
