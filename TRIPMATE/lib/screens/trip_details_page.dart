@@ -1,231 +1,293 @@
 // lib/screens/customer/trip_details_page.dart
 import 'package:flutter/material.dart';
-import 'package:tripmate/models/trip_package.dart';
-import 'package:tripmate/services/trip_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../models/trip_package.dart';
+import 'trip_booking_page.dart';
 
 class TripDetailsPage extends StatefulWidget {
-  final TripPackage trip;
-  const TripDetailsPage({super.key, required this.trip});
+  final String tripId;
+
+  const TripDetailsPage({super.key, required this.tripId});
 
   @override
   State<TripDetailsPage> createState() => _TripDetailsPageState();
 }
 
 class _TripDetailsPageState extends State<TripDetailsPage> {
-  final Set<int> _selectedSeats = {};
-  bool _loading = false;
+  TripPackage? trip;
+  bool loading = true;
 
-  Future<void> _bookSeats() async {
-    if (_selectedSeats.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select at least one seat")),
-      );
-      return;
-    }
+  @override
+  void initState() {
+    super.initState();
+    _fetchTrip();
+  }
 
-    setState(() => _loading = true);
+  Future<void> _fetchTrip() async {
     try {
-      // Map selected seats into travellers list
-      final travellers = _selectedSeats
-          .map((seatNo) => {'seatNumber': seatNo})
-          .toList();
+      final doc = await FirebaseFirestore.instance
+          .collection("trip_packages")
+          .doc(widget.tripId)
+          .get();
 
-      await TripService.bookTrip(
-        tripId: widget.trip.id,
-        travellers: travellers,
-        userId: FirebaseAuth.instance.currentUser!.uid,
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Seats booked successfully ✅")),
-        );
-        Navigator.pop(context);
+      if (!doc.exists) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Trip not found")));
+        }
+        return;
       }
+
+      setState(() {
+        trip = TripPackage.fromDoc(doc);
+        loading = false;
+      });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Booking failed: $e")),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Error: $e")));
       }
-    } finally {
-      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final totalSeats = widget.trip.capacity;
-    final bookedSeatsList = widget.trip.bookedSeatsList ?? [];
-    final availableSeats = totalSeats - bookedSeatsList.length;
+    if (loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
-    // Responsive seat grid calculation
-    final screenWidth = MediaQuery.of(context).size.width;
-    final seatSize = 50.0;
-    final crossAxisCount = screenWidth ~/ (seatSize + 8);
-    final seatsPerRow = crossAxisCount > 0 ? crossAxisCount : 5;
+    if (trip == null) {
+      return const Scaffold(
+        body: Center(child: Text("Trip not found")),
+      );
+    }
+
+    final availableSeats = trip!.capacity - trip!.bookedSeats;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.trip.title),
+        title: Text(trip!.title),
         backgroundColor: Colors.teal,
       ),
-      body: Column(
-        children: [
-          // Trip Info
-          Card(
-            margin: const EdgeInsets.all(12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 📷 Trip Gallery / Main Image
+            if (trip!.gallery.isNotEmpty)
+              SizedBox(
+                height: 220,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.all(12),
+                  itemCount: trip!.gallery.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          trip!.gallery[index],
+                          width: 300,
+                          height: 220,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else if (trip!.imageUrl != null && trip!.imageUrl!.isNotEmpty)
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(16)),
+                child: Image.network(
+                  trip!.imageUrl!,
+                  width: double.infinity,
+                  height: 220,
+                  fit: BoxFit.cover,
+                ),
+              ),
+
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.trip.imageUrl != null && widget.trip.imageUrl!.isNotEmpty)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        widget.trip.imageUrl!,
-                        height: 180,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  const SizedBox(height: 12),
                   Text(
-                    widget.trip.title,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    trip!.title,
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 6),
-                  Text("Destination: ${widget.trip.destination}",
-                      style: const TextStyle(fontSize: 16)),
-                  const SizedBox(height: 6),
-                  Text("Dates: ${widget.trip.startDate} - ${widget.trip.endDate}",
-                      style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                  const SizedBox(height: 6),
-                  Text("Price per seat: ₹${widget.trip.price}",
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 6),
-                  Text("Available Seats: $availableSeats",
-                      style: const TextStyle(fontSize: 16)),
-                  if (_selectedSeats.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        "Selected Seats: ${_selectedSeats.join(', ')}",
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.place, color: Colors.teal, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        trip!.destination,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.date_range, color: Colors.teal, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        "${trip!.startDate.toString().split(' ').first} - ${trip!.endDate.toString().split(' ').first}",
+                        style: const TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.money, color: Colors.teal, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        "₹${trip!.price} per seat",
                         style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w500, color: Colors.green),
+                            fontSize: 16, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.event_seat, color: Colors.teal, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Available Seats: $availableSeats",
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 🏨 Hotel Section
+                  if (trip!.hotelName != null && trip!.hotelName!.isNotEmpty) ...[
+                    const Text(
+                      "Hotel",
+                      style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    if (trip!.imageUrl != null && trip!.imageUrl!.isNotEmpty)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          trip!.imageUrl!,
+                          width: double.infinity,
+                          height: 180,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    if (trip!.gallery.isNotEmpty)
+                      SizedBox(
+                        height: 180,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: trip!.gallery.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  trip!.gallery[index],
+                                  width: 200,
+                                  height: 180,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 📝 Itinerary
+                  if (trip!.itinerary.isNotEmpty) ...[
+                    const Text(
+                      "Itinerary",
+                      style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    ...trip!.itinerary.map((day) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                          "Day ${day['day']}: ${day['description']}"),
+                    )),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 🍽 Meals
+                  if (trip!.meals.isNotEmpty) ...[
+                    const Text(
+                      "Meals",
+                      style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(trip!.meals.join(", ")),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 🎯 Activities
+                  if (trip!.activities.isNotEmpty) ...[
+                    const Text(
+                      "Activities",
+                      style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(trip!.activities.join(", ")),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Book Now Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: availableSeats <= 0
+                          ? null
+                          : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TripBookingPage(trip: trip!),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: Colors.teal,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text(
+                        "Book Now",
+                        style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
-          ),
-
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Select your seats:",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Seat Grid
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: GridView.builder(
-                itemCount: totalSeats,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: seatsPerRow,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 1,
-                ),
-                itemBuilder: (context, index) {
-                  final seatNo = index + 1;
-                  final isBooked = bookedSeatsList.contains(seatNo);
-                  final isSelected = _selectedSeats.contains(seatNo);
-
-                  Color bgColor;
-                  Color textColor;
-
-                  if (isBooked) {
-                    bgColor = Colors.grey.shade400;
-                    textColor = Colors.white;
-                  } else if (isSelected) {
-                    bgColor = Colors.green;
-                    textColor = Colors.white;
-                  } else {
-                    bgColor = Colors.white;
-                    textColor = Colors.black;
-                  }
-
-                  return GestureDetector(
-                    onTap: isBooked
-                        ? null
-                        : () {
-                      setState(() {
-                        if (isSelected) {
-                          _selectedSeats.remove(seatNo);
-                        } else if (_selectedSeats.length < availableSeats) {
-                          _selectedSeats.add(seatNo);
-                        }
-                      });
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.black26),
-                        boxShadow: [
-                          if (!isBooked) const BoxShadow(
-                              color: Colors.black12, blurRadius: 2, offset: Offset(1, 1))
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          "$seatNo",
-                          style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // Book Button
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _loading ? null : _bookSeats,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: _loading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : Text(
-                  _selectedSeats.isEmpty
-                      ? "Book Now"
-                      : "Book ${_selectedSeats.length} Seat(s)",
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ),
-            ),
-          )
-        ],
+          ],
+        ),
       ),
     );
   }

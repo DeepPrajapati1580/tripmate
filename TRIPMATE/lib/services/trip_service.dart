@@ -4,7 +4,6 @@ import '../models/trip_package.dart';
 class TripService {
   static final _col = FirebaseFirestore.instance.collection('trip_packages');
 
-
   /// ✅ Stream trips created by a specific agent
   static Stream<List<TripPackage>> streamByAgent(
       String agentId, {
@@ -13,15 +12,13 @@ class TripService {
     Query<Map<String, dynamic>> query =
     _col.where('createdBy', isEqualTo: agentId);
 
-    // Filter only upcoming trips
     if (onlyUpcoming) {
       query = query.where('endDate',
           isGreaterThan: Timestamp.fromDate(DateTime.now()));
     }
 
     return query.snapshots().map(
-          (snap) => snap.docs.map((doc) => TripPackage.fromDoc(doc)).toList(),
-    );
+            (snap) => snap.docs.map((doc) => TripPackage.fromDoc(doc)).toList());
   }
 
   /// ✅ Stream all trips for customers
@@ -29,23 +26,19 @@ class TripService {
     Query<Map<String, dynamic>> query = _col;
 
     if (onlyUpcoming) {
-      query = query.where(
-        'endDate',
-        isGreaterThan: Timestamp.fromDate(DateTime.now()),
-      );
+      query = query.where('endDate',
+          isGreaterThan: Timestamp.fromDate(DateTime.now()));
     }
 
     return query.snapshots().map(
-          (snap) => snap.docs.map((doc) => TripPackage.fromDoc(doc)).toList(),
-    );
+            (snap) => snap.docs.map((doc) => TripPackage.fromDoc(doc)).toList());
   }
-
-
 
   /// ✅ Create new trip
   static Future<void> create({
     required String title,
     required String description,
+    required String source,
     required String destination,
     required DateTime startDate,
     required DateTime endDate,
@@ -53,9 +46,12 @@ class TripService {
     required int capacity,
     required String createdBy,
     String? imageUrl,
-    String? imagePublicId, // 👈 Cloudinary public ID
+    String? imagePublicId,
     List<String>? gallery,
     String? hotelName,
+    String? hotelDescription,
+    String? hotelMainImage,
+    List<String>? hotelGallery,
     int? hotelStars,
     List<String>? meals,
     List<String>? activities,
@@ -65,25 +61,29 @@ class TripService {
     await _col.add({
       'title': title,
       'description': description,
+      'source': source,
       'destination': destination,
       'startDate': Timestamp.fromDate(startDate),
       'endDate': Timestamp.fromDate(endDate),
       'price': price,
       'capacity': capacity,
       'bookedSeats': 0,
-      'bookedSeatsList': [],
+      'bookedSeatsList': <int>[],
       'createdBy': createdBy,
       'createdAt': FieldValue.serverTimestamp(),
       'imageUrl': imageUrl,
       'imagePublicId': imagePublicId,
-      'gallery': gallery,
+      'gallery': gallery ?? [],
       'hotelName': hotelName,
+      'hotelDescription': hotelDescription,
+      'hotelMainImage': hotelMainImage,
+      'hotelGallery': hotelGallery ?? [],
       'hotelStars': hotelStars,
-      'meals': meals,
-      'activities': activities,
+      'meals': meals ?? [],
+      'activities': activities ?? [],
       'airportPickup': airportPickup,
-      'itinerary': itinerary,
-      'travellers': [],
+      'itinerary': itinerary ?? [],
+      'travellers': <Map<String, dynamic>>[],
     });
   }
 
@@ -92,6 +92,7 @@ class TripService {
     required String tripId,
     String? title,
     String? description,
+    String? source,
     String? destination,
     DateTime? startDate,
     DateTime? endDate,
@@ -101,11 +102,16 @@ class TripService {
     String? imagePublicId,
     List<String>? gallery,
     String? hotelName,
+    String? hotelDescription,
+    String? hotelMainImage,
+    List<String>? hotelGallery,
     int? hotelStars,
     List<String>? meals,
     List<String>? activities,
     bool? airportPickup,
     List<Map<String, dynamic>>? itinerary,
+    List<Map<String, dynamic>>? travellers,
+    List<int>? bookedSeatsList,
   }) async {
     final Map<String, dynamic> updates = {
       'updatedAt': FieldValue.serverTimestamp(),
@@ -113,6 +119,7 @@ class TripService {
 
     if (title != null) updates['title'] = title;
     if (description != null) updates['description'] = description;
+    if (source != null) updates['source'] = source;
     if (destination != null) updates['destination'] = destination;
     if (startDate != null) updates['startDate'] = Timestamp.fromDate(startDate);
     if (endDate != null) updates['endDate'] = Timestamp.fromDate(endDate);
@@ -122,11 +129,18 @@ class TripService {
     if (imagePublicId != null) updates['imagePublicId'] = imagePublicId;
     if (gallery != null) updates['gallery'] = gallery;
     if (hotelName != null) updates['hotelName'] = hotelName;
+    if (hotelDescription != null) {
+      updates['hotelDescription'] = hotelDescription;
+    }
+    if (hotelMainImage != null) updates['hotelMainImage'] = hotelMainImage;
+    if (hotelGallery != null) updates['hotelGallery'] = hotelGallery;
     if (hotelStars != null) updates['hotelStars'] = hotelStars;
     if (meals != null) updates['meals'] = meals;
     if (activities != null) updates['activities'] = activities;
     if (airportPickup != null) updates['airportPickup'] = airportPickup;
     if (itinerary != null) updates['itinerary'] = itinerary;
+    if (travellers != null) updates['travellers'] = travellers;
+    if (bookedSeatsList != null) updates['bookedSeatsList'] = bookedSeatsList;
 
     await _col.doc(tripId).update(updates);
   }
@@ -134,33 +148,30 @@ class TripService {
   /// ✅ Book trip with traveller details
   static Future<void> bookTrip({
     required String tripId,
-    required List<Map<String, dynamic>> travellers, // 👈
+    required List<Map<String, dynamic>> travellers,
     required String userId,
   }) async {
     final tripRef = _col.doc(tripId);
 
     await FirebaseFirestore.instance.runTransaction((txn) async {
       final snapshot = await txn.get(tripRef);
-      if (!snapshot.exists) {
-        throw Exception("Trip not found");
-      }
+      if (!snapshot.exists) throw Exception("Trip not found");
 
       final data = snapshot.data() as Map<String, dynamic>;
       final bookedSeats = (data['bookedSeats'] as num?)?.toInt() ?? 0;
       final capacity = (data['capacity'] as num?)?.toInt() ?? 0;
+      final price = (data['price'] as num?)?.toInt() ?? 0;
 
       if (bookedSeats + travellers.length > capacity) {
         throw Exception("Not enough seats available");
       }
 
-      // ✅ Update trip with travellers
       txn.update(tripRef, {
         'bookedSeats': bookedSeats + travellers.length,
         'travellers': FieldValue.arrayUnion(travellers),
       });
     });
 
-    // ✅ Create booking record
     final tripSnapshot = await tripRef.get();
     final tripData = tripSnapshot.data() as Map<String, dynamic>;
 
@@ -176,17 +187,13 @@ class TripService {
   }
 
   /// ✅ Get all trips
-  static Stream<QuerySnapshot<Map<String, dynamic>>> getTrips() {
-    return _col.snapshots();
-  }
+  static Stream<QuerySnapshot<Map<String, dynamic>>> getTrips() =>
+      _col.snapshots();
 
   /// ✅ Get one trip
-  static Future<DocumentSnapshot<Map<String, dynamic>>> getTrip(String id) {
-    return _col.doc(id).get();
-  }
+  static Future<DocumentSnapshot<Map<String, dynamic>>> getTrip(String id) =>
+      _col.doc(id).get();
 
   /// ✅ Delete a trip
-  static Future<void> delete(String id) async {
-    await _col.doc(id).delete();
-  }
+  static Future<void> delete(String id) async => _col.doc(id).delete();
 }

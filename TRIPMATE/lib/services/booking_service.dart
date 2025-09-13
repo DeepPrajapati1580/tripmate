@@ -7,32 +7,72 @@ class BookingService {
   static final CollectionReference<Map<String, dynamic>> _bookings =
   FirebaseFirestore.instance.collection('bookings');
 
-  /// 🔹 Create a pending booking
+  /// Create pending booking and update trip seats
   static Future<Booking> createPendingBooking({
     required String tripPackageId,
     required int seats,
     required int amount,
     String? razorpayOrderId,
+    List<Map<String, dynamic>> travellers = const [],
   }) async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
+    final tripRef =
+    FirebaseFirestore.instance.collection('trip_packages').doc(tripPackageId);
 
-    final data = {
-      'tripPackageId': tripPackageId,
-      'userId': uid,
-      'seats': seats,
-      'amount': amount,
-      'status': BookingStatus.pending.name,
-      'razorpayOrderId': razorpayOrderId,
-      'createdAt': FieldValue.serverTimestamp(),
-    };
+    await FirebaseFirestore.instance.runTransaction((txn) async {
+      final snap = await txn.get(tripRef);
+      if (!snap.exists) throw Exception("Trip not found");
 
-    final doc = await _bookings.add(data);
-    final snap = await doc.get();
+      final data = snap.data()!;
+      final capacity = (data['capacity'] as num?)?.toInt() ?? 0;
+      final bookedSeatsList = List<int>.from(data['bookedSeatsList'] ?? []);
 
-    return Booking.fromDoc(snap); // ✅ now correct
+      if (bookedSeatsList.length + seats > capacity) {
+        throw Exception("Not enough seats available");
+      }
+
+      // Generate seat numbers dynamically
+      final List<int> newSeats = [];
+      int seatNumber = 1;
+      while (newSeats.length < seats) {
+        if (!bookedSeatsList.contains(seatNumber)) {
+          newSeats.add(seatNumber);
+        }
+        seatNumber++;
+      }
+
+      // Update trip with booked seats and travellers
+      txn.update(tripRef, {
+        'bookedSeats': bookedSeatsList.length + newSeats.length,
+        'bookedSeatsList': FieldValue.arrayUnion(newSeats),
+        if (travellers.isNotEmpty) 'travellers': FieldValue.arrayUnion(travellers),
+      });
+
+      // Create booking
+      final docRef = _bookings.doc();
+      txn.set(docRef, {
+        'tripPackageId': tripPackageId,
+        'userId': uid,
+        'seats': seats,
+        'amount': amount,
+        'status': BookingStatus.pending.name,
+        'razorpayOrderId': razorpayOrderId,
+        'travellers': travellers,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    });
+
+    final doc = await _bookings
+        .where('tripPackageId', isEqualTo: tripPackageId)
+        .where('userId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .get();
+
+    return Booking.fromDoc(doc.docs.first);
   }
 
-  /// 🔹 Mark booking as paid
+  /// Mark booking as paid
   static Future<void> markPaid({
     required String bookingId,
     required String razorpayPaymentId,
@@ -65,7 +105,7 @@ class BookingService {
     });
   }
 
-  /// 🔹 Cancel booking
+  /// Cancel booking
   static Future<void> cancelBooking(String bookingId) async {
     await _bookings.doc(bookingId).update({
       'status': BookingStatus.cancelled.name,
@@ -73,16 +113,14 @@ class BookingService {
     });
   }
 
-  /// 🔹 Stream user bookings
+  /// Stream user bookings
   static Stream<List<Booking>> streamUserBookings(String userId) {
     return _bookings
         .where('userId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
-          (snap) => snap.docs
-          .map((d) => Booking.fromMap(d.id, d.data())) // ✅ use fromMap
-          .toList(),
+          (snap) => snap.docs.map((d) => Booking.fromMap(d.id, d.data())).toList(),
     );
   }
 }

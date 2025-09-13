@@ -5,7 +5,7 @@ import '../models/trip_package.dart';
 import '../services/trip_service.dart';
 import '../widgets/trip_card.dart';
 import 'trip_details_page.dart';
-import 'my_bookings_page.dart'; // 👈 added
+import 'my_bookings_page.dart';
 
 class CustomerHome extends StatefulWidget {
   const CustomerHome({super.key});
@@ -19,7 +19,7 @@ class _CustomerHomeState extends State<CustomerHome> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser; 
+    final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -37,7 +37,7 @@ class _CustomerHomeState extends State<CustomerHome> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => MyBookingsPage(userId: user.uid), 
+                    builder: (_) => MyBookingsPage(userId: user.uid),
                   ),
                 );
               }
@@ -45,8 +45,10 @@ class _CustomerHomeState extends State<CustomerHome> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
+            tooltip: "Logout",
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
+              // Optional: navigate to login page
               // Navigator.of(context).pushReplacementNamed('/login');
             },
           ),
@@ -95,6 +97,7 @@ class _CustomerHomeState extends State<CustomerHome> {
 
                   var trips = snap.data ?? [];
 
+                  // 🔍 Filter by search query
                   if (_searchQuery.isNotEmpty) {
                     trips = trips.where((trip) {
                       return trip.title.toLowerCase().contains(_searchQuery) ||
@@ -112,7 +115,7 @@ class _CustomerHomeState extends State<CustomerHome> {
                     );
                   }
 
-                  // ✅ Show 1 TripCard per row
+                  // ✅ Show TripCard per row
                   return ListView.builder(
                     padding: const EdgeInsets.all(12),
                     itemCount: trips.length,
@@ -126,7 +129,7 @@ class _CustomerHomeState extends State<CustomerHome> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => TripDetailsPage(trip: trip),
+                                builder: (_) => TripDetailsPage(tripId: trip.id),
                               ),
                             );
                           },

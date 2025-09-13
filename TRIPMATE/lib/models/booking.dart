@@ -10,6 +10,7 @@ class Booking {
   final int amount;
   final BookingStatus status;
   final DateTime createdAt;
+  final List<Map<String, dynamic>> travellers; // ✅ List of {'seatNumber': int, 'name': String}
 
   Booking({
     required this.id,
@@ -19,32 +20,35 @@ class Booking {
     required this.amount,
     required this.status,
     required this.createdAt,
+    this.travellers = const [],
   });
 
-  /// ✅ Use when you already have a Firestore DocumentSnapshot
+  /// Use when you already have a Firestore DocumentSnapshot
   factory Booking.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     return Booking(
       id: doc.id,
       tripPackageId: data['tripPackageId'],
       userId: data['userId'],
-      seats: data['seats'],
-      amount: data['amount'],
+      seats: (data['seats'] as num).toInt(),
+      amount: (data['amount'] as num).toInt(),
       status: BookingStatus.values.byName(data['status']),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      travellers: List<Map<String, dynamic>>.from(data['travellers'] ?? []),
     );
   }
 
-  /// ✅ Use when you only have `id` + `Map`
+  /// Use when you only have `id` + `Map`
   factory Booking.fromMap(String id, Map<String, dynamic> data) {
     return Booking(
       id: id,
       tripPackageId: data['tripPackageId'],
       userId: data['userId'],
-      seats: data['seats'],
-      amount: data['amount'],
+      seats: (data['seats'] as num).toInt(),
+      amount: (data['amount'] as num).toInt(),
       status: BookingStatus.values.byName(data['status']),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      travellers: List<Map<String, dynamic>>.from(data['travellers'] ?? []),
     );
   }
 
@@ -56,6 +60,7 @@ class Booking {
       "amount": amount,
       "status": status.name,
       "createdAt": createdAt,
+      "travellers": travellers, // ✅ include travellers
     };
   }
 }

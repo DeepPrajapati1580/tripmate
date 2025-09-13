@@ -1,8 +1,7 @@
 // lib/screens/customer/trip_booking_page.dart
 import 'package:flutter/material.dart';
-import 'package:tripmate/models/trip_package.dart';
-import 'package:tripmate/services/trip_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../models/trip_package.dart';
+import '../../services/booking_service.dart';
 
 class TripBookingPage extends StatefulWidget {
   final TripPackage trip;
@@ -13,9 +12,15 @@ class TripBookingPage extends StatefulWidget {
 }
 
 class _TripBookingPageState extends State<TripBookingPage> {
-  final Set<int> _selectedSeats = {};
+  int _roomsFor1 = 0;
+  int _roomsFor2 = 0;
   bool _loading = false;
   late List<TextEditingController> _nameControllers;
+
+  int get totalSelectedSeats => _roomsFor1 * 1 + _roomsFor2 * 2;
+
+  int get availableSeats =>
+      widget.trip.capacity - widget.trip.bookedSeatsList.length;
 
   @override
   void initState() {
@@ -25,37 +30,43 @@ class _TripBookingPageState extends State<TripBookingPage> {
 
   @override
   void dispose() {
-    for (var c in _nameControllers) {
-      c.dispose();
-    }
+    for (var c in _nameControllers) c.dispose();
     super.dispose();
   }
 
   void _updateControllers() {
-    if (_nameControllers.length < _selectedSeats.length) {
+    if (_nameControllers.length < totalSelectedSeats) {
       _nameControllers.addAll(List.generate(
-          _selectedSeats.length - _nameControllers.length,
+          totalSelectedSeats - _nameControllers.length,
               (_) => TextEditingController()));
-    } else if (_nameControllers.length > _selectedSeats.length) {
-      _nameControllers = _nameControllers.sublist(0, _selectedSeats.length);
+    } else if (_nameControllers.length > totalSelectedSeats) {
+      _nameControllers = _nameControllers.sublist(0, totalSelectedSeats);
     }
   }
 
-  Future<void> _bookSeats() async {
-    if (_selectedSeats.isEmpty) {
+  Future<void> _bookRooms() async {
+    if (totalSelectedSeats == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select at least one seat")),
+        const SnackBar(content: Text("Select at least one room")),
+      );
+      return;
+    }
+
+    if (totalSelectedSeats > availableSeats) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                "Only $availableSeats seats available, reduce your selection")),
       );
       return;
     }
 
     _updateControllers();
 
-    // Validate names
     for (var i = 0; i < _nameControllers.length; i++) {
       if (_nameControllers[i].text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Please enter a name for seat ${_selectedSeats.elementAt(i)}")),
+          SnackBar(content: Text("Enter name for traveller ${i + 1}")),
         );
         return;
       }
@@ -64,18 +75,16 @@ class _TripBookingPageState extends State<TripBookingPage> {
     setState(() => _loading = true);
 
     try {
-      final travellers = List.generate(
-        _selectedSeats.length,
-            (index) => {
-          'name': _nameControllers[index].text.trim(),
-          'seatNumber': _selectedSeats.elementAt(index),
-        },
-      );
+      final travellers = List.generate(totalSelectedSeats, (i) => {
+        'seatNumber': i + 1,
+        'name': _nameControllers[i].text.trim(),
+      });
 
-      await TripService.bookTrip(
-        tripId: widget.trip.id,
+      await BookingService.createPendingBooking(
+        tripPackageId: widget.trip.id,
+        seats: totalSelectedSeats,
+        amount: widget.trip.price * totalSelectedSeats,
         travellers: travellers,
-        userId: FirebaseAuth.instance.currentUser!.uid,
       );
 
       if (mounted) {
@@ -95,35 +104,49 @@ class _TripBookingPageState extends State<TripBookingPage> {
     }
   }
 
+  void _incrementRooms(int occupancy) {
+    setState(() {
+      if (occupancy == 1 && totalSelectedSeats + 1 <= availableSeats) {
+        _roomsFor1++;
+      } else if (occupancy == 2 && totalSelectedSeats + 2 <= availableSeats) {
+        _roomsFor2++;
+      }
+    });
+  }
+
+  void _decrementRooms(int occupancy) {
+    setState(() {
+      if (occupancy == 1 && _roomsFor1 > 0) _roomsFor1--;
+      if (occupancy == 2 && _roomsFor2 > 0) _roomsFor2--;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final totalSeats = widget.trip.capacity;
-    final bookedSeatsList = widget.trip.bookedSeatsList ?? [];
-    final availableSeats = totalSeats - bookedSeatsList.length;
     _updateControllers();
 
-    // Calculate seats per row based on screen width
-    final screenWidth = MediaQuery.of(context).size.width;
-    final seatSize = 50.0; // Width & height of each seat box
-    final crossAxisCount = screenWidth ~/ (seatSize + 8); // Add spacing
-    final crossAxisCountFinal = crossAxisCount > 0 ? crossAxisCount : 5;
-
     return Scaffold(
-      appBar: AppBar(title: Text(widget.trip.title), backgroundColor: Colors.teal),
-      body: Padding(
+      appBar: AppBar(
+        title: Text(widget.trip.title),
+        backgroundColor: Colors.teal,
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(12),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Trip Info
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               elevation: 4,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (widget.trip.imageUrl != null && widget.trip.imageUrl!.isNotEmpty)
+                    if (widget.trip.imageUrl != null &&
+                        widget.trip.imageUrl!.isNotEmpty)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Image.network(
@@ -135,111 +158,60 @@ class _TripBookingPageState extends State<TripBookingPage> {
                       ),
                     const SizedBox(height: 12),
                     Text(widget.trip.title,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                        style: const TextStyle(
+                            fontSize: 22, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
                     Text("Destination: ${widget.trip.destination}",
                         style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 6),
-                    Text("Dates: ${widget.trip.startDate} - ${widget.trip.endDate}",
-                        style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                    Text(
+                        "Dates: ${widget.trip.startDate.toString().split(' ').first} - ${widget.trip.endDate.toString().split(' ').first}",
+                        style:
+                        const TextStyle(fontSize: 14, color: Colors.grey)),
                     const SizedBox(height: 6),
                     Text("Price per seat: ₹${widget.trip.price}",
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w500)),
                     const SizedBox(height: 6),
-                    Text("Available Seats: $availableSeats", style: const TextStyle(fontSize: 16)),
+                    Text("Available Seats: $availableSeats",
+                        style: const TextStyle(fontSize: 16)),
+                    if (totalSelectedSeats > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          "Selected Seats: $totalSelectedSeats",
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.green),
+                        ),
+                      ),
                   ],
                 ),
               ),
             ),
 
-            const SizedBox(height: 12),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Select your seats:",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Responsive Seat Grid
-            Expanded(
-              child: GridView.builder(
-                itemCount: totalSeats,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCountFinal,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 1,
-                ),
-                itemBuilder: (context, index) {
-                  final seatNo = index + 1;
-                  final isBooked = bookedSeatsList.contains(seatNo);
-                  final isSelected = _selectedSeats.contains(seatNo);
-
-                  Color bgColor;
-                  Color textColor;
-
-                  if (isBooked) {
-                    bgColor = Colors.grey.shade400;
-                    textColor = Colors.white;
-                  } else if (isSelected) {
-                    bgColor = Colors.green;
-                    textColor = Colors.white;
-                  } else {
-                    bgColor = Colors.white;
-                    textColor = Colors.black;
-                  }
-
-                  return GestureDetector(
-                    onTap: isBooked
-                        ? null
-                        : () {
-                      setState(() {
-                        if (isSelected) {
-                          _selectedSeats.remove(seatNo);
-                        } else if (_selectedSeats.length < availableSeats) {
-                          _selectedSeats.add(seatNo);
-                        }
-                      });
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.black26),
-                        boxShadow: [
-                          if (!isBooked) const BoxShadow(
-                              color: Colors.black12, blurRadius: 2, offset: Offset(1, 1))
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          "$seatNo",
-                          style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+            const SizedBox(height: 16),
+            // Room Selection
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _roomSelector(
+                    "1-person", _roomsFor1, _incrementRooms, _decrementRooms, 1),
+                _roomSelector(
+                    "2-person", _roomsFor2, _incrementRooms, _decrementRooms, 2),
+              ],
             ),
 
+            const SizedBox(height: 16),
             // Traveller Names
-            if (_selectedSeats.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text("Enter Traveller Names:", style: TextStyle(fontWeight: FontWeight.w600)),
-              ),
-              const SizedBox(height: 6),
+            if (totalSelectedSeats > 0)
               SizedBox(
                 height: 120,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  itemCount: _selectedSeats.length,
+                  itemCount: totalSelectedSeats,
                   itemBuilder: (context, index) {
-                    final seatNo = _selectedSeats.elementAt(index);
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: SizedBox(
@@ -247,10 +219,9 @@ class _TripBookingPageState extends State<TripBookingPage> {
                         child: TextField(
                           controller: _nameControllers[index],
                           decoration: InputDecoration(
-                            labelText: "Seat $seatNo",
+                            labelText: "Traveller ${index + 1}",
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
                       ),
@@ -258,34 +229,55 @@ class _TripBookingPageState extends State<TripBookingPage> {
                   },
                 ),
               ),
-            ],
 
             // Book Button
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _loading ? null : _bookSeats,
+                  onPressed: _loading ? null : _bookRooms,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.teal,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   child: _loading
                       ? const CircularProgressIndicator(color: Colors.white)
                       : Text(
-                    _selectedSeats.isEmpty
+                    totalSelectedSeats == 0
                         ? "Book Now"
-                        : "Book ${_selectedSeats.length} Seat(s)",
+                        : "Book $totalSelectedSeats Seat(s)",
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _roomSelector(String label, int value,
+      void Function(int) onIncrement, void Function(int) onDecrement, int occupancy) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(fontSize: 16)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            IconButton(
+                onPressed: () => onDecrement(occupancy),
+                icon: const Icon(Icons.remove_circle_outline)),
+            Text("$value", style: const TextStyle(fontSize: 18)),
+            IconButton(
+                onPressed: () => onIncrement(occupancy),
+                icon: const Icon(Icons.add_circle_outline)),
+          ],
+        )
+      ],
     );
   }
 }

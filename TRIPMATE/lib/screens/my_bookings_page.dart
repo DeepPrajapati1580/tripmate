@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/trip_package.dart';
 import '../../models/booking.dart';
-import 'trip_details_page.dart';
+import 'my_booking_details_page.dart';
 
 class MyBookingsPage extends StatelessWidget {
   final String userId;
@@ -21,6 +21,7 @@ class MyBookingsPage extends StatelessWidget {
         stream: FirebaseFirestore.instance
             .collection("bookings")
             .where("userId", isEqualTo: userId)
+            .orderBy("createdAt", descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -31,17 +32,16 @@ class MyBookingsPage extends StatelessWidget {
             return const Center(child: Text("No bookings found"));
           }
 
-          // ✅ Convert all bookings
+          // Convert bookings
           final bookings = snapshot.data!.docs
               .map((doc) =>
               Booking.fromDoc(doc as DocumentSnapshot<Map<String, dynamic>>))
               .toList();
 
-          // ✅ Group bookings by tripPackageId
+          // Group bookings by tripPackageId
           final Map<String, Booking> groupedBookings = {};
           for (var b in bookings) {
             if (groupedBookings.containsKey(b.tripPackageId)) {
-              // sum seats and amount
               final existing = groupedBookings[b.tripPackageId]!;
               groupedBookings[b.tripPackageId] = Booking(
                 id: existing.id,
@@ -49,7 +49,7 @@ class MyBookingsPage extends StatelessWidget {
                 userId: existing.userId,
                 seats: existing.seats + b.seats,
                 amount: existing.amount + b.amount,
-                status: b.status, // you can decide which status to show
+                status: b.status,
                 createdAt: existing.createdAt.isBefore(b.createdAt)
                     ? existing.createdAt
                     : b.createdAt,
@@ -84,6 +84,7 @@ class MyBookingsPage extends StatelessWidget {
               final groupedList = groupedBookings.values.toList();
 
               return ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: groupedList.length,
                 itemBuilder: (context, index) {
                   final booking = groupedList[index];
@@ -95,17 +96,22 @@ class MyBookingsPage extends StatelessWidget {
                   }
 
                   return Card(
-                    margin: const EdgeInsets.all(12),
+                    margin:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
+                    elevation: 3,
                     child: ListTile(
+                      contentPadding: const EdgeInsets.all(12),
                       onTap: () {
-                        // ✅ Navigate to trip details
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => TripDetailsPage(trip: trip),
+                            builder: (_) => MyBookingDetailsPage(
+                              trip: trip,
+                              booking: booking,
+                            ),
                           ),
                         );
                       },
@@ -121,22 +127,35 @@ class MyBookingsPage extends StatelessWidget {
                       )
                           : const Icon(Icons.card_travel,
                           size: 40, color: Colors.teal),
-                      title: Text(trip.title),
+                      title: Text(
+                        trip.title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          const SizedBox(height: 4),
                           Text("Destination: ${trip.destination}"),
                           Text("Seats: ${booking.seats}"),
                           Text("Total: ₹${booking.seats * trip.price}"),
-                          Text("Status: ${booking.status.name}"),
+                          Text(
+                            "Status: ${booking.status.name.toUpperCase()}",
+                            style: TextStyle(
+                              color: booking.status == BookingStatus.paid
+                                  ? Colors.green
+                                  : (booking.status == BookingStatus.pending
+                                  ? Colors.orange
+                                  : Colors.red),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                       trailing: Text(
                         booking.createdAt.toString().split(" ").first,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
+                        style:
+                        const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ),
                   );
