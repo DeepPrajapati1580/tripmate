@@ -12,6 +12,7 @@
 
 # Ignore service account keys
 # serviceAccountKey.json
+serviceAccountKey.json
 TRIPMATE/server/serviceAccountKey.json
 
 # Flutter repo-specific
