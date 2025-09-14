@@ -10,6 +10,9 @@
 .env
 .env.*
 
+# Ignore service account keys
+serviceAccountKey.json
+TRIPMATE/server/serviceAccountKey.json
 
 # Flutter repo-specific
 /bin/cache/
