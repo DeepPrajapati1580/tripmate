@@ -5,6 +5,52 @@ import '../../models/trip_package.dart';
 import '../../models/booking.dart';
 import 'my_booking_details_page.dart';
 
+/// Helper: convert Firestore status field to BookingStatus.
+BookingStatus _parseBookingStatus(dynamic raw) {
+  if (raw == null) return BookingStatus.pending;
+  if (raw is BookingStatus) return raw;
+
+  final s = raw.toString();
+  try {
+    return BookingStatus.values.firstWhere((e) {
+      final name = e.toString().split('.').last;
+      return name.toLowerCase() == s.toLowerCase();
+    });
+  } catch (_) {
+    return BookingStatus.pending;
+  }
+}
+
+DateTime _parseCreatedAt(dynamic raw) {
+  if (raw == null) return DateTime.now();
+  if (raw is Timestamp) return raw.toDate();
+  if (raw is DateTime) return raw;
+  try {
+    return DateTime.parse(raw.toString());
+  } catch (_) {
+    return DateTime.now();
+  }
+}
+
+int _toInt(dynamic n) {
+  if (n == null) return 0;
+  if (n is int) return n;
+  if (n is num) return n.toInt();
+  return int.tryParse(n.toString()) ?? 0;
+}
+
+List<Map<String, dynamic>> _toTravellers(dynamic raw) {
+  if (raw == null) return [];
+  if (raw is List) {
+    return raw.map<Map<String, dynamic>>((e) {
+      if (e is Map<String, dynamic>) return e;
+      if (e is Map) return Map<String, dynamic>.from(e);
+      return {'name': e?.toString() ?? ''};
+    }).toList();
+  }
+  return [];
+}
+
 class MyBookingsPage extends StatelessWidget {
   final String userId;
 
@@ -32,15 +78,28 @@ class MyBookingsPage extends StatelessWidget {
             return const Center(child: Text("No bookings found"));
           }
 
-          // Convert bookings
-          final bookings = snapshot.data!.docs
-              .map((doc) =>
-              Booking.fromDoc(doc as DocumentSnapshot<Map<String, dynamic>>))
-              .toList();
+          // Convert bookings safely
+          final bookings = snapshot.data!.docs.map((doc) {
+            final raw = doc.data();
+            final Map<String, dynamic> data =
+                (raw is Map<String, dynamic>) ? raw : <String, dynamic>{};
+
+            return Booking(
+              id: doc.id,
+              tripPackageId: data['tripPackageId'] as String? ?? '',
+              userId: data['userId'] as String? ?? '',
+              seats: _toInt(data['seats']),
+              amount: _toInt(data['amount']), // ✅ int not double
+              travellers: _toTravellers(data['travellers']),
+              status: _parseBookingStatus(data['status']),
+              createdAt: _parseCreatedAt(data['createdAt']),
+            );
+          }).toList();
 
           // Group bookings by tripPackageId
           final Map<String, Booking> groupedBookings = {};
-          for (var b in bookings) {
+          for (final b in bookings) {
+            if (b.tripPackageId.isEmpty) continue;
             if (groupedBookings.containsKey(b.tripPackageId)) {
               final existing = groupedBookings[b.tripPackageId]!;
               groupedBookings[b.tripPackageId] = Booking(
@@ -49,7 +108,10 @@ class MyBookingsPage extends StatelessWidget {
                 userId: existing.userId,
                 seats: existing.seats + b.seats,
                 amount: existing.amount + b.amount,
-                status: b.status,
+                travellers: [...existing.travellers, ...b.travellers],
+                status: existing.createdAt.isBefore(b.createdAt)
+                    ? existing.status
+                    : b.status,
                 createdAt: existing.createdAt.isBefore(b.createdAt)
                     ? existing.createdAt
                     : b.createdAt,
@@ -60,6 +122,9 @@ class MyBookingsPage extends StatelessWidget {
           }
 
           final tripIds = groupedBookings.keys.toList();
+          if (tripIds.isEmpty) {
+            return const Center(child: Text("No valid bookings found"));
+          }
 
           return FutureBuilder<QuerySnapshot>(
             future: FirebaseFirestore.instance
@@ -75,11 +140,38 @@ class MyBookingsPage extends StatelessWidget {
                 return const Center(child: Text("No trip details found"));
               }
 
-              final trips = {
-                for (var d in tripSnap.data!.docs)
-                  d.id: TripPackage.fromDoc(
-                      d as DocumentSnapshot<Map<String, dynamic>>)
-              };
+              final trips = <String, TripPackage>{};
+              for (final d in tripSnap.data!.docs) {
+                final raw = d.data();
+                final Map<String, dynamic> data =
+                    (raw is Map<String, dynamic>) ? raw : <String, dynamic>{};
+                try {
+                  trips[d.id] = TripPackage.fromDoc(
+                      d as DocumentSnapshot<Map<String, dynamic>>);
+                } catch (_) {
+                  // ✅ FIX: add all required fields with safe defaults
+                  trips[d.id] = TripPackage(
+                    id: d.id,
+                    title: data['title'] as String? ?? 'Untitled',
+                    description: data['description'] as String? ?? '',
+                    source: data['source'] as String? ?? '',
+                    destination: data['destination'] as String? ?? '',
+                    startDate: _parseCreatedAt(data['startDate']),
+                    endDate: _parseCreatedAt(data['endDate']),
+                    price: _toInt(data['price']),
+                    capacity: _toInt(data['capacity']),
+                    bookedSeats: _toInt(data['bookedSeats']),
+                    bookedSeatsList: (data['bookedSeatsList'] as List<dynamic>?)
+                            ?.map((e) => (e as num).toInt())
+                            .toList() ??
+                        [],
+                    createdBy: data['createdBy'] as String? ?? '',
+                    createdAt: _parseCreatedAt(data['createdAt']),
+                    travellers: _toTravellers(data['travellers']),
+                    imageUrl: data['imageUrl'] as String?,
+                  );
+                }
+              }
 
               final groupedList = groupedBookings.values.toList();
 
@@ -97,7 +189,7 @@ class MyBookingsPage extends StatelessWidget {
 
                   return Card(
                     margin:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -115,18 +207,19 @@ class MyBookingsPage extends StatelessWidget {
                           ),
                         );
                       },
-                      leading: trip.imageUrl != null && trip.imageUrl!.isNotEmpty
+                      leading: trip.imageUrl != null &&
+                              trip.imageUrl!.isNotEmpty
                           ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          trip.imageUrl!,
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                        ),
-                      )
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                trip.imageUrl!,
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
+                              ),
+                            )
                           : const Icon(Icons.card_travel,
-                          size: 40, color: Colors.teal),
+                              size: 40, color: Colors.teal),
                       title: Text(
                         trip.title,
                         style: const TextStyle(
@@ -138,15 +231,15 @@ class MyBookingsPage extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text("Destination: ${trip.destination}"),
                           Text("Seats: ${booking.seats}"),
-                          Text("Total: ₹${booking.seats * trip.price}"),
+                          Text("Total: ₹${booking.amount}"),
                           Text(
-                            "Status: ${booking.status.name.toUpperCase()}",
+                            "Status: ${booking.status.toString().split('.').last.toUpperCase()}",
                             style: TextStyle(
                               color: booking.status == BookingStatus.paid
                                   ? Colors.green
                                   : (booking.status == BookingStatus.pending
-                                  ? Colors.orange
-                                  : Colors.red),
+                                      ? Colors.orange
+                                      : Colors.red),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -154,8 +247,8 @@ class MyBookingsPage extends StatelessWidget {
                       ),
                       trailing: Text(
                         booking.createdAt.toString().split(" ").first,
-                        style:
-                        const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: const TextStyle(
+                            fontSize: 12, color: Colors.grey),
                       ),
                     ),
                   );

@@ -10,7 +10,10 @@ class Booking {
   final int amount;
   final BookingStatus status;
   final DateTime createdAt;
-  final List<Map<String, dynamic>> travellers; // ✅ List of {'seatNumber': int, 'name': String}
+  final List<Map<String, dynamic>> travellers;
+  final String? paymentId;
+  final DateTime? paidAt;
+  final String? razorpayOrderId;
 
   Booking({
     required this.id,
@@ -20,35 +23,51 @@ class Booking {
     required this.amount,
     required this.status,
     required this.createdAt,
-    this.travellers = const [],
+    required this.travellers,
+    this.paymentId,
+    this.paidAt,
+    this.razorpayOrderId,
   });
 
-  /// Use when you already have a Firestore DocumentSnapshot
-  factory Booking.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
-    return Booking(
-      id: doc.id,
-      tripPackageId: data['tripPackageId'],
-      userId: data['userId'],
-      seats: (data['seats'] as num).toInt(),
-      amount: (data['amount'] as num).toInt(),
-      status: BookingStatus.values.byName(data['status']),
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      travellers: List<Map<String, dynamic>>.from(data['travellers'] ?? []),
-    );
-  }
+  factory Booking.fromMap(String id, Map<String, dynamic> map) {
+    // handles Firestore Timestamp or DateTime
+    final created = map['createdAt'];
+    DateTime createdAt;
+    if (created is Timestamp) {
+      createdAt = created.toDate();
+    } else if (created is DateTime) {
+      createdAt = created;
+    } else {
+      createdAt = DateTime.now();
+    }
 
-  /// Use when you only have `id` + `Map`
-  factory Booking.fromMap(String id, Map<String, dynamic> data) {
+    DateTime? paidAt;
+    final paid = map['paidAt'];
+    if (paid is Timestamp) {
+      paidAt = paid.toDate();
+    } else if (paid is DateTime) paidAt = paid;
+
+    BookingStatus status = BookingStatus.pending;
+    if (map['status'] != null) {
+      try {
+        status = BookingStatus.values.firstWhere((e) => e.name == map['status']);
+      } catch (_) {
+        status = BookingStatus.pending;
+      }
+    }
+
     return Booking(
       id: id,
-      tripPackageId: data['tripPackageId'],
-      userId: data['userId'],
-      seats: (data['seats'] as num).toInt(),
-      amount: (data['amount'] as num).toInt(),
-      status: BookingStatus.values.byName(data['status']),
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      travellers: List<Map<String, dynamic>>.from(data['travellers'] ?? []),
+      tripPackageId: map['tripPackageId'] ?? '',
+      userId: map['userId'] ?? '',
+      seats: (map['seats'] ?? 0) is int ? map['seats'] : (map['seats'] ?? 0).toInt(),
+      amount: (map['amount'] ?? 0) is int ? map['amount'] : (map['amount'] ?? 0).toInt(),
+      status: status,
+      createdAt: createdAt,
+      travellers: List<Map<String, dynamic>>.from(map['travellers'] ?? []),
+      paymentId: map['paymentId'],
+      paidAt: paidAt,
+      razorpayOrderId: map['razorpayOrderId'],
     );
   }
 
@@ -60,7 +79,10 @@ class Booking {
       "amount": amount,
       "status": status.name,
       "createdAt": createdAt,
-      "travellers": travellers, // ✅ include travellers
+      "travellers": travellers,
+      "paymentId": paymentId,
+      "paidAt": paidAt,
+      "razorpayOrderId": razorpayOrderId,
     };
   }
 }

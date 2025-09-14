@@ -1,126 +1,110 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import '../models/booking.dart';
 
 class BookingService {
   static final CollectionReference<Map<String, dynamic>> _bookings =
-  FirebaseFirestore.instance.collection('bookings');
+      FirebaseFirestore.instance.collection('bookings');
 
-  /// Create pending booking and update trip seats
+  static final CollectionReference<Map<String, dynamic>> _trips =
+      FirebaseFirestore.instance.collection('tripPackages');
+
+  /// Create a pending booking AND decrement available seats inside a transaction.
+  /// Returns the created Booking.
   static Future<Booking> createPendingBooking({
     required String tripPackageId,
     required int seats,
     required int amount,
-    String? razorpayOrderId,
     List<Map<String, dynamic>> travellers = const [],
+    String? razorpayOrderId,
   }) async {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-    final tripRef =
-    FirebaseFirestore.instance.collection('trip_packages').doc(tripPackageId);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('User not logged in');
+    final uid = user.uid;
 
-    await FirebaseFirestore.instance.runTransaction((txn) async {
-      final snap = await txn.get(tripRef);
-      if (!snap.exists) throw Exception("Trip not found");
+    final bookingRef = _bookings.doc(); // new doc
 
-      final data = snap.data()!;
-      final capacity = (data['capacity'] as num?)?.toInt() ?? 0;
-      final bookedSeatsList = List<int>.from(data['bookedSeatsList'] ?? []);
+    await FirebaseFirestore.instance.runTransaction((tx) async {
+      final tripRef = _trips.doc(tripPackageId);
+      final tripSnap = await tx.get(tripRef);
 
-      if (bookedSeatsList.length + seats > capacity) {
-        throw Exception("Not enough seats available");
-      }
+      if (!tripSnap.exists) throw Exception('Trip not found');
 
-      // Generate seat numbers dynamically
-      final List<int> newSeats = [];
-      int seatNumber = 1;
-      while (newSeats.length < seats) {
-        if (!bookedSeatsList.contains(seatNumber)) {
-          newSeats.add(seatNumber);
-        }
-        seatNumber++;
-      }
+      final tripData = tripSnap.data()!;
+      final int availableSeats = (tripData['availableSeats'] ?? tripData['seats'] ?? 0) is int
+          ? (tripData['availableSeats'] ?? tripData['seats'] ?? 0)
+          : int.parse((tripData['availableSeats'] ?? tripData['seats'] ?? 0).toString());
 
-      // Update trip with booked seats and travellers
-      txn.update(tripRef, {
-        'bookedSeats': bookedSeatsList.length + newSeats.length,
-        'bookedSeatsList': FieldValue.arrayUnion(newSeats),
-        if (travellers.isNotEmpty) 'travellers': FieldValue.arrayUnion(travellers),
-      });
+      if (availableSeats < seats) throw Exception('Not enough seats available');
 
-      // Create booking
-      final docRef = _bookings.doc();
-      txn.set(docRef, {
+      // decrement seats
+      tx.update(tripRef, {'availableSeats': availableSeats - seats});
+
+      // create booking doc with status pending
+      tx.set(bookingRef, {
         'tripPackageId': tripPackageId,
         'userId': uid,
         'seats': seats,
         'amount': amount,
         'status': BookingStatus.pending.name,
-        'razorpayOrderId': razorpayOrderId,
-        'travellers': travellers,
         'createdAt': FieldValue.serverTimestamp(),
+        'travellers': travellers,
+        'razorpayOrderId': razorpayOrderId,
       });
     });
 
-    final doc = await _bookings
-        .where('tripPackageId', isEqualTo: tripPackageId)
-        .where('userId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .limit(1)
-        .get();
-
-    return Booking.fromDoc(doc.docs.first);
+    // read the doc back and return Booking
+    final doc = await bookingRef.get();
+    return Booking.fromMap(doc.id, doc.data()!);
   }
 
-  /// Mark booking as paid
-  static Future<void> markPaid({
+  /// Mark booking as paid (idempotent)
+  static Future<void> markBookingPaid({
     required String bookingId,
-    required String razorpayPaymentId,
-    required String razorpaySignature,
+    required String paymentId,
+    required String razorpayOrderId,
   }) async {
-    final doc = await _bookings.doc(bookingId).get();
-    final data = doc.data();
-    if (data == null) throw Exception('Booking not found');
-
-    final orderId = data['razorpayOrderId'] as String?;
-    if (orderId == null) throw Exception('Order not created');
-
-    final verifyFn = FirebaseFunctions.instance.httpsCallable(
-      'verifyRazorpaySignature',
-    );
-    final res = await verifyFn.call({
-      'orderId': orderId,
-      'paymentId': razorpayPaymentId,
-      'signature': razorpaySignature,
-    });
-
-    final valid = (res.data as Map)['valid'] == true;
-    if (!valid) throw Exception('Signature verification failed');
-
-    await _bookings.doc(bookingId).update({
+    final bookingRef = _bookings.doc(bookingId);
+    await bookingRef.update({
       'status': BookingStatus.paid.name,
-      'razorpayPaymentId': razorpayPaymentId,
-      'razorpaySignature': razorpaySignature,
       'paidAt': FieldValue.serverTimestamp(),
+      'paymentId': paymentId,
+      'razorpayOrderId': razorpayOrderId,
     });
   }
 
-  /// Cancel booking
-  static Future<void> cancelBooking(String bookingId) async {
-    await _bookings.doc(bookingId).update({
-      'status': BookingStatus.cancelled.name,
-      'cancelledAt': FieldValue.serverTimestamp(),
-    });
-  }
+  /// Revert pending booking seats and mark booking cancelled (use when payment failed)
+  static Future<void> revertPendingBookingSeats(String bookingId) async {
+    final bookingRef = _bookings.doc(bookingId);
+    final bookingSnap = await bookingRef.get();
+    if (!bookingSnap.exists) return;
+    final data = bookingSnap.data()!;
+    final status = data['status'] ?? 'pending';
+    if (status != BookingStatus.pending.name) return;
 
-  /// Stream user bookings
-  static Stream<List<Booking>> streamUserBookings(String userId) {
-    return _bookings
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snap) => snap.docs.map((d) => Booking.fromMap(d.id, d.data())).toList(),
-    );
+    final tripRef = _trips.doc(data['tripPackageId']);
+    final seats = (data['seats'] ?? 0) is int ? data['seats'] : int.parse(data['seats'].toString());
+
+    await FirebaseFirestore.instance.runTransaction((tx) async {
+      final tripSnap = await tx.get(tripRef);
+      if (!tripSnap.exists) {
+        // still mark cancelled
+        tx.update(bookingRef, {
+          'status': BookingStatus.cancelled.name,
+          'cancelledAt': FieldValue.serverTimestamp(),
+        });
+        return;
+      }
+      final tripData = tripSnap.data()!;
+      final int availableSeats = (tripData['availableSeats'] ?? tripData['seats'] ?? 0) is int
+          ? (tripData['availableSeats'] ?? tripData['seats'] ?? 0)
+          : int.parse((tripData['availableSeats'] ?? tripData['seats'] ?? 0).toString());
+
+      tx.update(tripRef, {'availableSeats': availableSeats + seats});
+      tx.update(bookingRef, {
+        'status': BookingStatus.cancelled.name,
+        'cancelledAt': FieldValue.serverTimestamp(),
+      });
+    });
   }
 }
