@@ -37,10 +37,10 @@ class _TripListPageState extends State<TripListPage> {
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     if (_pendingBookingId != null) {
-      await BookingService.markPaid(
+      await BookingService.markBookingPaid(   // ✅ fixed name
         bookingId: _pendingBookingId!,
-        razorpayPaymentId: response.paymentId ?? '',
-        razorpaySignature: response.signature ?? '',
+        paymentId: response.paymentId ?? '',
+        razorpayOrderId: response.orderId ?? '', // ✅ changed args
       );
 
       if (mounted) {
@@ -57,10 +57,17 @@ class _TripListPageState extends State<TripListPage> {
     }
   }
 
-  void _handlePaymentError(PaymentFailureResponse response) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Payment failed: ${response.code}')),
-    );
+  void _handlePaymentError(PaymentFailureResponse response) async {
+    // revert seats if we already blocked them
+    if (_pendingBookingId != null) {
+      await BookingService.revertPendingBookingSeats(_pendingBookingId!);
+      _pendingBookingId = null;
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Payment failed: ${response.code}')),
+      );
+    }
   }
 
   void _handleExternalWallet(ExternalWalletResponse response) {
@@ -82,18 +89,11 @@ class _TripListPageState extends State<TripListPage> {
     final totalAmount = trip.price * _seats;
 
     try {
-      final order = await PaymentService.createRazorpayOrder(
-        amount: totalAmount,
-        currency: 'INR',
-        receipt: 'trip_${trip.id}_${DateTime.now().millisecondsSinceEpoch}',
-        notes: {'tripPackageId': trip.id},
-      );
-
+      // 👇 replace this with your server order creation if you want
       final booking = await BookingService.createPendingBooking(
         tripPackageId: trip.id,
         seats: _seats,
         amount: totalAmount,
-        razorpayOrderId: order['id'] as String,
       );
 
       setState(() {
@@ -102,13 +102,13 @@ class _TripListPageState extends State<TripListPage> {
         _pendingSeatsCount = _seats;
       });
 
+      // Razorpay open
       var options = {
-        'key': order['key'] ?? 'rzp_test_xxxxxx',
-        'amount': totalAmount,
+        'key': 'rzp_test_xxxxxx', // use env/constant in real app
+        'amount': totalAmount * 100, // Razorpay expects paise
         'currency': 'INR',
         'name': 'TripMate',
         'description': trip.title,
-        'order_id': order['id'],
       };
       _razorpay.open(options);
     } catch (e) {
@@ -202,14 +202,16 @@ class _TripListPageState extends State<TripListPage> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    onPressed: available <= 0 ? null : () {
+                    onPressed: available <= 0
+                        ? null
+                        : () {
                       Navigator.pop(context);
                       _startCheckout(trip);
                     },
                     child: const Text(
                       'Book & Pay',
-                      style:
-                      TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),

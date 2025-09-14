@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/trip_package.dart';
 import '../../models/booking.dart';
 import 'my_booking_details_page.dart';
+import 'package:intl/intl.dart'; // ✅ import intl for formatting
 
 /// Helper: convert Firestore status field to BookingStatus.
 BookingStatus _parseBookingStatus(dynamic raw) {
@@ -231,20 +232,26 @@ class MyBookingsPage extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text("Destination: ${trip.destination}"),
                           Text("Seats: ${booking.seats}"),
-                          Text("Total: ₹${booking.amount}"),
                           Text(
-                            "Status: ${booking.status.toString().split('.').last.toUpperCase()}",
+                            "Total: ${NumberFormat.currency(
+                                locale: 'en_IN',
+                                symbol: '₹'
+                            ).format(booking.amount)}",
+                          ),
+                          Text(
+                            "Status: ${booking.status.name.toUpperCase()}",
                             style: TextStyle(
                               color: booking.status == BookingStatus.paid
                                   ? Colors.green
-                                  : (booking.status == BookingStatus.pending
-                                      ? Colors.orange
-                                      : Colors.red),
+                                  : booking.status == BookingStatus.pending
+                                  ? Colors.orange
+                                  : Colors.red,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
-                      ),
+                      )
+                      ,
                       trailing: Text(
                         booking.createdAt.toString().split(" ").first,
                         style: const TextStyle(

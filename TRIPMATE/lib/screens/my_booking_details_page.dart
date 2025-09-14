@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/trip_package.dart';
 import '../../models/booking.dart';
+import 'package:intl/intl.dart'; // ✅ import intl for formatting
 
 class MyBookingDetailsPage extends StatelessWidget {
   final TripPackage trip;
@@ -50,7 +51,8 @@ class MyBookingDetailsPage extends StatelessWidget {
               style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 6),
-            Text("₹${trip.price}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text("${NumberFormat.currency(locale: 'en_IN',symbol: '₹')
+                .format(trip.price)}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
 
             const Divider(height: 32),
 
@@ -96,7 +98,8 @@ class MyBookingDetailsPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("Seats: ${booking.seats}"),
-                    Text("Amount Paid: ₹${booking.amount}"),
+                    Text("Amount Paid: ${NumberFormat.currency(locale: 'en_IN' ,symbol: '₹')
+                        .format(booking.amount)}"),
                     Text(
                       "Status: ${booking.status.name.toUpperCase()}",
                       style: TextStyle(

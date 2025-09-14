@@ -176,107 +176,156 @@ class _TripEditPageState extends State<TripEditPage> {
       labelText: label,
       prefixIcon: icon != null ? Icon(icon) : null,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      filled: true,
+      fillColor: Colors.grey.shade100,
     );
   }
 
   Widget _chipEditor(String label, List<String> items, void Function(List<String>) onChanged) {
     final ctrl = TextEditingController();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Wrap(
-          spacing: 6,
-          children: items.map((e) => Chip(label: Text(e), onDeleted: () => onChanged(List.from(items)..remove(e)))).toList(),
-        ),
-        Row(
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: TextField(controller: ctrl, decoration: const InputDecoration(hintText: "Add item"))),
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () {
-                if (ctrl.text.isNotEmpty) {
-                  onChanged(List.from(items)..add(ctrl.text.trim()));
-                  ctrl.clear();
-                }
-              },
-            )
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              children: items
+                  .map((e) => Chip(
+                label: Text(e),
+                onDeleted: () => onChanged(List.from(items)..remove(e)),
+              ))
+                  .toList(),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(child: TextField(controller: ctrl, decoration: const InputDecoration(hintText: "Add item"))),
+                IconButton(
+                  icon: const Icon(Icons.add, color: Colors.teal),
+                  onPressed: () {
+                    if (ctrl.text.isNotEmpty) {
+                      onChanged(List.from(items)..add(ctrl.text.trim()));
+                      ctrl.clear();
+                    }
+                  },
+                )
+              ],
+            ),
           ],
         ),
-      ],
+      ),
     );
   }
 
   Widget _itineraryEditor() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("Itinerary", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 8),
-        ..._itinerary.asMap().entries.map((e) {
-          final index = e.key;
-          final day = _itinerary[index];
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Itinerary", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
+            ..._itinerary.asMap().entries.map((e) {
+              final index = e.key;
+              final day = _itinerary[index];
 
-          final dayCtrl = TextEditingController(text: day['day']?.toString() ?? '');
-          final descCtrl = TextEditingController(text: day['plan'] ?? '');
-          final mealsCtrl = TextEditingController(text: (day['meals'] as List<dynamic>?)?.join(", ") ?? '');
-          final activitiesCtrl = TextEditingController(text: (day['activities'] as List<dynamic>?)?.join(", ") ?? '');
+              final dayCtrl = TextEditingController(text: day['day']?.toString() ?? '');
+              final descCtrl = TextEditingController(text: day['plan'] ?? '');
+              final mealsCtrl = TextEditingController(text: (day['meals'] as List<dynamic>?)?.join(", ") ?? '');
+              final activitiesCtrl = TextEditingController(text: (day['activities'] as List<dynamic>?)?.join(", ") ?? '');
 
-          return ItineraryDayField(
-            dayCtrl: dayCtrl,
-            descCtrl: descCtrl,
-            mealsCtrl: mealsCtrl,
-            activitiesCtrl: activitiesCtrl,
-            onRemove: () => setState(() => _itinerary.removeAt(index)),
-          );
-        }),
-        const SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: () {
-            setState(() {
-              _itinerary.add({
-                'day': _itinerary.length + 1,
-                'plan': '',
-                'meals': [],
-                'activities': [],
-              });
-            });
-          },
-          child: const Text("Add Day"),
+              return ItineraryDayField(
+                dayCtrl: dayCtrl,
+                descCtrl: descCtrl,
+                mealsCtrl: mealsCtrl,
+                activitiesCtrl: activitiesCtrl,
+                onRemove: () => setState(() => _itinerary.removeAt(index)),
+              );
+            }),
+            const SizedBox(height: 8),
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _itinerary.add({
+                      'day': _itinerary.length + 1,
+                      'plan': '',
+                      'meals': [],
+                      'activities': [],
+                    });
+                  });
+                },
+                icon: const Icon(Icons.add),
+                label: const Text("Add Day"),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
   Widget _imageGalleryEditor(String label, List<String> images, bool isHotel, {bool isMain = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        if (isMain && images.isNotEmpty)
-          GestureDetector(
-            onTap: () => _pickImage(isHotel: isHotel, isMain: true),
-            child: Image.network(images.first, width: double.infinity, height: 200, fit: BoxFit.cover),
-          ),
-        Wrap(
-          spacing: 6,
-          children: images.map((img) => Stack(
-            alignment: Alignment.topRight,
-            children: [
-              Image.network(img, width: 100, height: 100, fit: BoxFit.cover),
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 6),
+            if (isMain && images.isNotEmpty)
               GestureDetector(
-                onTap: () => setState(() => images.remove(img)),
-                child: const Icon(Icons.close, color: Colors.red),
-              )
-            ],
-          )).toList(),
+                onTap: () => _pickImage(isHotel: isHotel, isMain: true),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(images.first, width: double.infinity, height: 200, fit: BoxFit.cover),
+                ),
+              ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              children: images
+                  .map((img) => Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(img, width: 100, height: 100, fit: BoxFit.cover)),
+                  GestureDetector(
+                    onTap: () => setState(() => images.remove(img)),
+                    child: const Icon(Icons.close, color: Colors.red),
+                  )
+                ],
+              ))
+                  .toList(),
+            ),
+            if (!isMain)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: ElevatedButton.icon(
+                  onPressed: () => _pickImage(isHotel: isHotel, isGallery: true),
+                  icon: const Icon(Icons.add_a_photo),
+                  label: const Text("Add Image"),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                ),
+              ),
+          ],
         ),
-        if (!isMain)
-          ElevatedButton(
-            onPressed: () => _pickImage(isHotel: isHotel, isGallery: true),
-            child: const Text("Add Image"),
-          ),
-      ],
+      ),
     );
   }
 
@@ -285,76 +334,121 @@ class _TripEditPageState extends State<TripEditPage> {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Edit Trip")),
+      appBar: AppBar(title: const Text("Edit Trip"), backgroundColor: Colors.teal, elevation: 4),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            TextFormField(controller: _titleCtrl, decoration: _inputDecoration("Trip Title"), validator: (v) => v!.isEmpty ? "Enter title" : null),
-            const SizedBox(height: 12),
-            TextFormField(controller: _descCtrl, decoration: _inputDecoration("Description"), maxLines: 3),
-            const SizedBox(height: 12),
-            TextFormField(controller: _sourceCtrl, decoration: _inputDecoration("Source City")),
-            const SizedBox(height: 12),
-            TextFormField(controller: _destCtrl, decoration: _inputDecoration("Destination")),
-            const SizedBox(height: 12),
-            TextFormField(controller: _priceCtrl, decoration: _inputDecoration("Price"), keyboardType: TextInputType.number),
-            const SizedBox(height: 12),
-            TextFormField(controller: _capacityCtrl, decoration: _inputDecoration("Capacity"), keyboardType: TextInputType.number),
+            // Basic Trip Info
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    TextFormField(controller: _titleCtrl, decoration: _inputDecoration("Trip Title"), validator: (v) => v!.isEmpty ? "Enter title" : null),
+                    const SizedBox(height: 12),
+                    TextFormField(controller: _descCtrl, decoration: _inputDecoration("Description"), maxLines: 3),
+                    const SizedBox(height: 12),
+                    TextFormField(controller: _sourceCtrl, decoration: _inputDecoration("Source City")),
+                    const SizedBox(height: 12),
+                    TextFormField(controller: _destCtrl, decoration: _inputDecoration("Destination")),
+                    const SizedBox(height: 12),
+                    TextFormField(controller: _priceCtrl, decoration: _inputDecoration("Price"), keyboardType: TextInputType.number),
+                    const SizedBox(height: 12),
+                    TextFormField(controller: _capacityCtrl, decoration: _inputDecoration("Capacity"), keyboardType: TextInputType.number),
+                    const SizedBox(height: 12),
+
+                    // Dates
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () async {
+                              final picked = await showDatePicker(context: context, initialDate: _startDate ?? DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(2100));
+                              if (picked != null) setState(() => _startDate = picked);
+                            },
+                            child: AbsorbPointer(child: TextFormField(controller: TextEditingController(text: _startDate != null ? df.format(_startDate!) : ""), decoration: _inputDecoration("Start Date"))),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () async {
+                              final picked = await showDatePicker(context: context, initialDate: _endDate ?? (_startDate ?? DateTime.now()), firstDate: _startDate ?? DateTime.now(), lastDate: DateTime(2100));
+                              if (picked != null) setState(() => _endDate = picked);
+                            },
+                            child: AbsorbPointer(child: TextFormField(controller: TextEditingController(text: _endDate != null ? df.format(_endDate!) : ""), decoration: _inputDecoration("End Date"))),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             const SizedBox(height: 12),
 
-            // Dates
-            GestureDetector(
-              onTap: () async {
-                final picked = await showDatePicker(context: context, initialDate: _startDate ?? DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(2100));
-                if (picked != null) setState(() => _startDate = picked);
-              },
-              child: AbsorbPointer(child: TextFormField(controller: TextEditingController(text: _startDate != null ? df.format(_startDate!) : ""), decoration: _inputDecoration("Start Date"))),
-            ),
-            const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () async {
-                final picked = await showDatePicker(context: context, initialDate: _endDate ?? (_startDate ?? DateTime.now()), firstDate: _startDate ?? DateTime.now(), lastDate: DateTime(2100));
-                if (picked != null) setState(() => _endDate = picked);
-              },
-              child: AbsorbPointer(child: TextFormField(controller: TextEditingController(text: _endDate != null ? df.format(_endDate!) : ""), decoration: _inputDecoration("End Date"))),
-            ),
-            const SizedBox(height: 12),
-
-            // Main Images
+            // Images
             _imageGalleryEditor("Trip Main Image", _imageUrl != null ? [_imageUrl!] : [], false, isMain: true),
-            const SizedBox(height: 12),
             _imageGalleryEditor("Trip Gallery", _gallery, false),
-            const SizedBox(height: 12),
             _imageGalleryEditor("Hotel Main Image", _hotelMainImage != null ? [_hotelMainImage!] : [], true, isMain: true),
-            const SizedBox(height: 12),
             _imageGalleryEditor("Hotel Gallery", _hotelGallery, true),
+
             const SizedBox(height: 12),
 
             // Hotel Info
-            TextFormField(controller: _hotelNameCtrl, decoration: _inputDecoration("Hotel Name")),
-            const SizedBox(height: 12),
-            TextFormField(controller: _hotelDescCtrl, decoration: _inputDecoration("Hotel Description"), maxLines: 2),
-            const SizedBox(height: 12),
-            TextFormField(controller: _hotelStarsCtrl, decoration: _inputDecoration("Hotel Stars"), keyboardType: TextInputType.number),
-            const SizedBox(height: 12),
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    TextFormField(controller: _hotelNameCtrl, decoration: _inputDecoration("Hotel Name")),
+                    const SizedBox(height: 12),
+                    TextFormField(controller: _hotelDescCtrl, decoration: _inputDecoration("Hotel Description"), maxLines: 2),
+                    const SizedBox(height: 12),
+                    TextFormField(controller: _hotelStarsCtrl, decoration: _inputDecoration("Hotel Stars"), keyboardType: TextInputType.number),
+                  ],
+                ),
+              ),
+            ),
 
             // Meals & Activities
             _chipEditor("Meals", _meals, (v) => setState(() => _meals = v)),
-            const SizedBox(height: 12),
             _chipEditor("Activities", _activities, (v) => setState(() => _activities = v)),
-            const SizedBox(height: 12),
 
             // Airport pickup
-            SwitchListTile(value: _airportPickup, onChanged: (v) => setState(() => _airportPickup = v), title: const Text("Airport Pickup")),
-            const SizedBox(height: 12),
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              child: SwitchListTile(
+                value: _airportPickup,
+                onChanged: (v) => setState(() => _airportPickup = v),
+                title: const Text("Airport Pickup"),
+              ),
+            ),
 
             // Itinerary
             _itineraryEditor(),
-            const SizedBox(height: 20),
 
-            ElevatedButton(onPressed: _updateTrip, child: const Text("Save Changes")),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _updateTrip,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 14),
+                child: Text("Save Changes", style: TextStyle(fontSize: 16)),
+              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            ),
+            const SizedBox(height: 32),
           ]),
         ),
       ),
