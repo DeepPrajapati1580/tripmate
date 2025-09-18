@@ -20,10 +20,10 @@ class TripPackage {
 
   // Hotel info
   final String? hotelName;
-  final String? hotelDescription; // added
+  final String? hotelDescription;
   final int? hotelStars;
-  final String? hotelMainImage; // main hotel image
-  final List<String> hotelGallery; // multiple hotel images
+  final String? hotelMainImage;
+  final List<String> hotelGallery;
 
   final List<String> meals;
   final List<String> activities;
@@ -32,6 +32,10 @@ class TripPackage {
 
   // ✅ travellers
   final List<Map<String, dynamic>> travellers;
+
+  // ✅ Feedback info (calculated or stored separately)
+  final double avgRating;
+  final int feedbackCount;
 
   TripPackage({
     required this.id,
@@ -60,6 +64,8 @@ class TripPackage {
     this.airportPickup = false,
     this.itinerary = const [],
     required this.travellers,
+    this.avgRating = 0.0,
+    this.feedbackCount = 0,
   });
 
   /// Create TripPackage from Firestore Document
@@ -104,6 +110,10 @@ class TripPackage {
           ?.map((e) => Map<String, dynamic>.from(e))
           .toList() ??
           [],
+
+      // Feedback fields (optional if stored in trip doc)
+      avgRating: (d['avgRating'] as num?)?.toDouble() ?? 0.0,
+      feedbackCount: (d['feedbackCount'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -135,6 +145,8 @@ class TripPackage {
       'airportPickup': airportPickup,
       'itinerary': itinerary,
       'travellers': travellers,
+      'avgRating': avgRating,
+      'feedbackCount': feedbackCount,
     };
   }
 }
