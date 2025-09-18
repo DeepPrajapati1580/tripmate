@@ -1,8 +1,11 @@
+// lib/screens/customer/my_booking_details_page.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/trip_package.dart';
 import '../../models/booking.dart';
 import 'package:intl/intl.dart'; // ✅ import intl for formatting
+// add these imports
+import 'trip_feedback_page.dart';
 
 class MyBookingDetailsPage extends StatelessWidget {
   final TripPackage trip;
@@ -51,8 +54,10 @@ class MyBookingDetailsPage extends StatelessWidget {
               style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 6),
-            Text("${NumberFormat.currency(locale: 'en_IN',symbol: '₹')
-                .format(trip.price)}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              "${NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(trip.price)}",
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
 
             const Divider(height: 32),
 
@@ -98,14 +103,15 @@ class MyBookingDetailsPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("Seats: ${booking.seats}"),
-                    Text("Amount Paid: ${NumberFormat.currency(locale: 'en_IN' ,symbol: '₹')
-                        .format(booking.amount)}"),
+                    Text("Amount Paid: ${NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(booking.amount)}"),
                     Text(
                       "Status: ${booking.status.name.toUpperCase()}",
                       style: TextStyle(
                         color: booking.status == BookingStatus.paid
                             ? Colors.green
-                            : (booking.status == BookingStatus.pending ? Colors.orange : Colors.red),
+                            : (booking.status == BookingStatus.pending
+                            ? Colors.orange
+                            : Colors.red),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -139,7 +145,8 @@ class MyBookingDetailsPage extends StatelessWidget {
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(trip.hotelMainImage!, height: 180, fit: BoxFit.cover),
+                  child: Image.network(trip.hotelMainImage!,
+                      height: 180, fit: BoxFit.cover),
                 ),
               ],
               if (trip.hotelGallery.isNotEmpty) ...[
@@ -170,7 +177,9 @@ class MyBookingDetailsPage extends StatelessWidget {
               Text("Meals",
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Wrap(spacing: 8, children: trip.meals.map((m) => Chip(label: Text(m))).toList()),
+              Wrap(
+                  spacing: 8,
+                  children: trip.meals.map((m) => Chip(label: Text(m))).toList()),
               const Divider(height: 32),
             ],
 
@@ -179,7 +188,10 @@ class MyBookingDetailsPage extends StatelessWidget {
               Text("Activities",
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Wrap(spacing: 8, children: trip.activities.map((a) => Chip(label: Text(a))).toList()),
+              Wrap(
+                  spacing: 8,
+                  children:
+                  trip.activities.map((a) => Chip(label: Text(a))).toList()),
               const Divider(height: 32),
             ],
 
@@ -188,12 +200,13 @@ class MyBookingDetailsPage extends StatelessWidget {
               children: [
                 const Icon(Icons.airport_shuttle, color: Colors.teal),
                 const SizedBox(width: 8),
-                Text(trip.airportPickup ? "Airport Pickup Included" : "No Airport Pickup"),
+                Text(trip.airportPickup
+                    ? "Airport Pickup Included"
+                    : "No Airport Pickup"),
               ],
             ),
             const Divider(height: 32),
 
-            /// Itinerary (using ItineraryDayField in read-only mode)
             /// Itinerary
             if (trip.itinerary.isNotEmpty) ...[
               Text("Itinerary",
@@ -206,10 +219,13 @@ class MyBookingDetailsPage extends StatelessWidget {
 
                   final day = item['day'] ?? (index + 1);
                   final plan = (item['plan'] as String?)?.trim();
-                  final meals = (item['meals'] as List<dynamic>?)?.where((e) => (e as String).trim().isNotEmpty).toList();
-                  final activities = (item['activities'] as List<dynamic>?)?.where((e) => (e as String).trim().isNotEmpty).toList();
+                  final meals = (item['meals'] as List<dynamic>?)
+                      ?.where((e) => (e as String).trim().isNotEmpty)
+                      .toList();
+                  final activities = (item['activities'] as List<dynamic>?)
+                      ?.where((e) => (e as String).trim().isNotEmpty)
+                      .toList();
 
-                  // Skip completely empty items
                   if ((plan == null || plan.isEmpty) &&
                       (meals == null || meals.isEmpty) &&
                       (activities == null || activities.isEmpty)) {
@@ -223,32 +239,37 @@ class MyBookingDetailsPage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("Day $day", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text("Day $day",
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
 
-                          // Description / Plan
                           if (plan != null && plan.isNotEmpty) ...[
                             const SizedBox(height: 6),
-                            const Text("Plan:", style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text("Plan:",
+                                style: TextStyle(fontWeight: FontWeight.bold)),
                             Text(plan),
                           ],
 
-                          // Meals
                           if (meals != null && meals.isNotEmpty) ...[
                             const SizedBox(height: 6),
-                            const Text("Meals:", style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text("Meals:",
+                                style: TextStyle(fontWeight: FontWeight.bold)),
                             Wrap(
                               spacing: 6,
-                              children: meals.map((m) => Chip(label: Text(m))).toList(),
+                              children:
+                              meals.map((m) => Chip(label: Text(m))).toList(),
                             ),
                           ],
 
-                          // Activities
                           if (activities != null && activities.isNotEmpty) ...[
                             const SizedBox(height: 6),
-                            const Text("Activities:", style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text("Activities:",
+                                style: TextStyle(fontWeight: FontWeight.bold)),
                             Wrap(
                               spacing: 6,
-                              children: activities.map((a) => Chip(label: Text(a))).toList(),
+                              children: activities
+                                  .map((a) => Chip(label: Text(a)))
+                                  .toList(),
                             ),
                           ],
                         ],
@@ -259,6 +280,7 @@ class MyBookingDetailsPage extends StatelessWidget {
               ),
               const Divider(height: 32),
             ],
+
             /// Travellers
             if (trip.travellers.isNotEmpty) ...[
               Text("Travellers",
@@ -273,6 +295,30 @@ class MyBookingDetailsPage extends StatelessWidget {
                 }).toList(),
               ),
             ],
+
+            const Divider(height: 32),
+
+            /// Feedback actions
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.feedback),
+                  label: const Text("Feedback"),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TripFeedbackPage(
+                          tripId: trip.id,
+                        ),
+                      ),
+
+                    );
+                  },
+                ),
+              ],
+            ),
           ],
         ),
       ),

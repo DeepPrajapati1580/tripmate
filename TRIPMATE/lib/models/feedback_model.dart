@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FeedbackModel {
+  static const int maxCommentLength = 250;
+
   final String id;
   final String userId;
   final String agentId;
@@ -14,10 +16,12 @@ class FeedbackModel {
     required this.userId,
     required this.agentId,
     required this.tripId,
-    required this.comment,
+    required String comment,
     required this.rating,
     required this.createdAt,
-  });
+  }) : comment = comment.length > maxCommentLength
+      ? comment.substring(0, maxCommentLength) // ✅ auto-truncate
+      : comment;
 
   FeedbackModel copyWith({
     String? id,
@@ -33,7 +37,9 @@ class FeedbackModel {
       userId: userId ?? this.userId,
       agentId: agentId ?? this.agentId,
       tripId: tripId ?? this.tripId,
-      comment: comment ?? this.comment,
+      comment: (comment ?? this.comment).length > maxCommentLength
+          ? (comment ?? this.comment).substring(0, maxCommentLength)
+          : (comment ?? this.comment),
       rating: rating ?? this.rating,
       createdAt: createdAt ?? this.createdAt,
     );
@@ -57,19 +63,28 @@ class FeedbackModel {
       userId: data['userId'] ?? '',
       agentId: data['agentId'] ?? '',
       tripId: data['tripId'] ?? '',
-      comment: data['comment'] ?? '',
+      comment: (data['comment'] ?? '').toString().substring(
+          0,
+          (data['comment'] ?? '').toString().length > maxCommentLength
+              ? maxCommentLength
+              : (data['comment'] ?? '').toString().length),
       rating: (data['rating'] as num?)?.toInt() ?? 0,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
   }
 
   static FeedbackModel fromMap(String id, Map<String, dynamic> data) {
+    final rawComment = data['comment'] ?? '';
     return FeedbackModel(
       id: id,
       userId: data['userId'] ?? '',
       agentId: data['agentId'] ?? '',
       tripId: data['tripId'] ?? '',
-      comment: data['comment'] ?? '',
+      comment: rawComment.toString().substring(
+          0,
+          rawComment.toString().length > maxCommentLength
+              ? maxCommentLength
+              : rawComment.toString().length),
       rating: (data['rating'] as num?)?.toInt() ?? 0,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
