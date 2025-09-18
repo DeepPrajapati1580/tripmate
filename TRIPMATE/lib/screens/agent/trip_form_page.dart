@@ -86,7 +86,9 @@ class _TripFormPageState extends State<TripFormPage> {
 
   // ------------------ Create Trip ------------------
   Future<void> _createTrip() async {
-    if (!_formKey.currentState!.validate() || _startDate == null || _endDate == null) {
+    if (!_formKey.currentState!.validate() ||
+        _startDate == null ||
+        _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all fields and pick dates")),
       );
@@ -103,36 +105,47 @@ class _TripFormPageState extends State<TripFormPage> {
       List<String> hotelGalleryUrls = [];
 
       if (_coverImage != null) {
-        final res = await CloudinaryUploader.uploadImage(filePath: _coverImage!.path);
+        final res = await CloudinaryUploader.uploadImage(
+            filePath: _coverImage!.path);
         coverUrl = res["secure_url"];
       }
 
       for (final img in _galleryImages) {
-        final res = await CloudinaryUploader.uploadImage(filePath: img.path);
+        final res =
+            await CloudinaryUploader.uploadImage(filePath: img.path);
         galleryUrls.add(res["secure_url"]!);
       }
 
       if (_hotelMainImage != null) {
-        final res = await CloudinaryUploader.uploadImage(filePath: _hotelMainImage!.path);
+        final res = await CloudinaryUploader.uploadImage(
+            filePath: _hotelMainImage!.path);
         hotelMainUrl = res["secure_url"];
       }
 
       for (final img in _hotelGalleryImages) {
-        final res = await CloudinaryUploader.uploadImage(filePath: img.path);
+        final res =
+            await CloudinaryUploader.uploadImage(filePath: img.path);
         hotelGalleryUrls.add(res["secure_url"]!);
       }
 
       // Global meals & activities
       meals = _mealsCtrl.text.split(",").map((e) => e.trim()).toList();
-      activities = _activitiesCtrl.text.split(",").map((e) => e.trim()).toList();
+      activities =
+          _activitiesCtrl.text.split(",").map((e) => e.trim()).toList();
 
       // Build itinerary
       final itinerary = _itineraryControllers.map((c) {
         return {
           "day": int.tryParse(c["day"]!.text) ?? 0,
           "description": c["desc"]!.text,
-          "meals": c["meals"]!.text.split(",").map((e) => e.trim()).toList(),
-          "activities": c["activities"]!.text.split(",").map((e) => e.trim()).toList(),
+          "meals": c["meals"]!.text
+              .split(",")
+              .map((e) => e.trim())
+              .toList(),
+          "activities": c["activities"]!.text
+              .split(",")
+              .map((e) => e.trim())
+              .toList(),
         };
       }).toList();
 
@@ -167,9 +180,11 @@ class _TripFormPageState extends State<TripFormPage> {
         Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -187,22 +202,30 @@ class _TripFormPageState extends State<TripFormPage> {
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Colors.teal),
       ),
-      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      contentPadding:
+          const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
     );
   }
 
   Widget _sectionCard(String title, Widget child) {
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal)),
-          const SizedBox(height: 12),
-          child,
-        ]),
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal)),
+              const SizedBox(height: 12),
+              child,
+            ]),
       ),
     );
   }
@@ -212,7 +235,8 @@ class _TripFormPageState extends State<TripFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text(label,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: () => multiple && onPickMultiple != null
@@ -227,8 +251,15 @@ class _TripFormPageState extends State<TripFormPage> {
               border: Border.all(color: Colors.grey.shade400),
             ),
             child: image != null
-                ? ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.file(image, fit: BoxFit.cover, width: double.infinity))
-                : Center(child: Text("Tap to pick ${multiple ? 'images' : 'image'}", style: const TextStyle(color: Colors.grey))),
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(image,
+                        fit: BoxFit.cover, width: double.infinity),
+                  )
+                : Center(
+                    child: Text(
+                        "Tap to pick ${multiple ? 'images' : 'image'}",
+                        style: const TextStyle(color: Colors.grey))),
           ),
         ),
       ],
@@ -238,7 +269,9 @@ class _TripFormPageState extends State<TripFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Create Trip Package"), backgroundColor: Colors.teal),
+      appBar: AppBar(
+          title: const Text("Create Trip Package"),
+          backgroundColor: Colors.teal),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(12),
         child: Form(
@@ -250,23 +283,62 @@ class _TripFormPageState extends State<TripFormPage> {
                 "Trip Info",
                 Column(
                   children: [
-                    TextFormField(controller: _titleCtrl, decoration: _inputDecoration("Title", icon: Icons.title), validator: (v) => v!.isEmpty ? "Enter title" : null),
+                    TextFormField(
+                        controller: _titleCtrl,
+                        decoration:
+                            _inputDecoration("Title", icon: Icons.title),
+                        validator: (v) =>
+                            v!.isEmpty ? "Enter title" : null),
                     const SizedBox(height: 12),
-                    TextFormField(controller: _descCtrl, maxLines: 3, decoration: _inputDecoration("Description", icon: Icons.description), validator: (v) => v!.isEmpty ? "Enter description" : null),
+                    TextFormField(
+                        controller: _descCtrl,
+                        maxLines: 3,
+                        decoration: _inputDecoration("Description",
+                            icon: Icons.description),
+                        validator: (v) =>
+                            v!.isEmpty ? "Enter description" : null),
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Expanded(child: TextFormField(controller: _sourceCtrl, decoration: _inputDecoration("Source City", icon: Icons.location_city), validator: (v) => v!.isEmpty ? "Enter source city" : null)),
+                        Expanded(
+                            child: TextFormField(
+                                controller: _sourceCtrl,
+                                decoration: _inputDecoration("Source City",
+                                    icon: Icons.location_city),
+                                validator: (v) => v!.isEmpty
+                                    ? "Enter source city"
+                                    : null)),
                         const SizedBox(width: 12),
-                        Expanded(child: TextFormField(controller: _destCtrl, decoration: _inputDecoration("Destination", icon: Icons.place), validator: (v) => v!.isEmpty ? "Enter destination" : null)),
+                        Expanded(
+                            child: TextFormField(
+                                controller: _destCtrl,
+                                decoration: _inputDecoration("Destination",
+                                    icon: Icons.place),
+                                validator: (v) => v!.isEmpty
+                                    ? "Enter destination"
+                                    : null)),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Expanded(child: TextFormField(controller: _priceCtrl, decoration: _inputDecoration("Price (₹)", icon: Icons.currency_rupee), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? "Enter price" : null)),
+                        Expanded(
+                            child: TextFormField(
+                                controller: _priceCtrl,
+                                decoration: _inputDecoration("Price (₹)",
+                                    icon: Icons.currency_rupee),
+                                keyboardType: TextInputType.number,
+                                validator: (v) =>
+                                    v!.isEmpty ? "Enter price" : null)),
                         const SizedBox(width: 12),
-                        Expanded(child: TextFormField(controller: _capacityCtrl, decoration: _inputDecoration("Capacity", icon: Icons.people), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? "Enter capacity" : null)),
+                        Expanded(
+                            child: TextFormField(
+                                controller: _capacityCtrl,
+                                decoration: _inputDecoration("Capacity",
+                                    icon: Icons.people),
+                                keyboardType: TextInputType.number,
+                                validator: (v) =>
+                                    v!.isEmpty ? "Enter capacity" : null)),
                       ],
                     ),
                   ],
@@ -277,9 +349,22 @@ class _TripFormPageState extends State<TripFormPage> {
                 "Dates",
                 Row(
                   children: [
-                    Expanded(child: OutlinedButton.icon(onPressed: _pickStartDate, icon: const Icon(Icons.calendar_today, color: Colors.teal), label: Text(_startDate == null ? "Pick Start Date" : "Start: ${_startDate!.day}/${_startDate!.month}/${_startDate!.year}"))),
+                    Expanded(
+                        child: OutlinedButton.icon(
+                            onPressed: _pickStartDate,
+                            icon: const Icon(Icons.calendar_today,
+                                color: Colors.teal),
+                            label: Text(_startDate == null
+                                ? "Pick Start Date"
+                                : "Start: ${_startDate!.day}/${_startDate!.month}/${_startDate!.year}"))),
                     const SizedBox(width: 12),
-                    Expanded(child: OutlinedButton.icon(onPressed: _pickEndDate, icon: const Icon(Icons.event, color: Colors.teal), label: Text(_endDate == null ? "Pick End Date" : "End: ${_endDate!.day}/${_endDate!.month}/${_endDate!.year}"))),
+                    Expanded(
+                        child: OutlinedButton.icon(
+                            onPressed: _pickEndDate,
+                            icon: const Icon(Icons.event, color: Colors.teal),
+                            label: Text(_endDate == null
+                                ? "Pick End Date"
+                                : "End: ${_endDate!.day}/${_endDate!.month}/${_endDate!.year}"))),
                   ],
                 ),
               ),
@@ -289,10 +374,24 @@ class _TripFormPageState extends State<TripFormPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _imagePicker("Cover Image", _coverImage, (f) => setState(() => _coverImage = f)),
+                    _imagePicker("Cover Image", _coverImage,
+                        (f) => setState(() => _coverImage = f)),
                     const SizedBox(height: 12),
-                    _imagePicker("Gallery Images", null, (_) {}, multiple: true, onPickMultiple: (list) => setState(() => _galleryImages = list)),
-                    Wrap(spacing: 8, runSpacing: 8, children: _galleryImages.map((f) => ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(f, width: 80, height: 80, fit: BoxFit.cover))).toList()),
+                    _imagePicker("Gallery Images", null, (_) {},
+                        multiple: true,
+                        onPickMultiple: (list) =>
+                            setState(() => _galleryImages = list)),
+                    Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _galleryImages
+                            .map((f) => ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(f,
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover)))
+                            .toList()),
                   ],
                 ),
               ),
@@ -302,18 +401,48 @@ class _TripFormPageState extends State<TripFormPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextFormField(controller: _hotelNameCtrl, decoration: _inputDecoration("Hotel Name", icon: Icons.hotel)),
+                    TextFormField(
+                        controller: _hotelNameCtrl,
+                        decoration:
+                            _inputDecoration("Hotel Name", icon: Icons.hotel)),
                     const SizedBox(height: 12),
-                    TextFormField(controller: _hotelStarsCtrl, decoration: _inputDecoration("Hotel Stars", icon: Icons.star), keyboardType: TextInputType.number),
+                    TextFormField(
+                        controller: _hotelStarsCtrl,
+                        decoration:
+                            _inputDecoration("Hotel Stars", icon: Icons.star),
+                        keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
-                    TextFormField(controller: _hotelDescCtrl, decoration: _inputDecoration("Hotel Description", icon: Icons.description), maxLines: 2),
+                    TextFormField(
+                        controller: _hotelDescCtrl,
+                        decoration: _inputDecoration("Hotel Description",
+                            icon: Icons.description),
+                        maxLines: 2),
                     const SizedBox(height: 12),
-                    _imagePicker("Hotel Main Image", _hotelMainImage, (f) => setState(() => _hotelMainImage = f)),
+                    _imagePicker("Hotel Main Image", _hotelMainImage,
+                        (f) => setState(() => _hotelMainImage = f)),
                     const SizedBox(height: 8),
-                    _imagePicker("Hotel Gallery Images", null, (_) {}, multiple: true, onPickMultiple: (list) => setState(() => _hotelGalleryImages = list)),
-                    Wrap(spacing: 8, runSpacing: 8, children: _hotelGalleryImages.map((f) => ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(f, width: 80, height: 80, fit: BoxFit.cover))).toList()),
+                    _imagePicker("Hotel Gallery Images", null, (_) {},
+                        multiple: true,
+                        onPickMultiple: (list) =>
+                            setState(() => _hotelGalleryImages = list)),
+                    Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _hotelGalleryImages
+                            .map((f) => ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(f,
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover)))
+                            .toList()),
                     const SizedBox(height: 12),
-                    SwitchListTile(value: _airportPickup, onChanged: (v) => setState(() => _airportPickup = v), title: const Text("Airport Pickup Available")),
+                    SwitchListTile(
+                        value: _airportPickup,
+                        onChanged: (v) =>
+                            setState(() => _airportPickup = v),
+                        title:
+                            const Text("Airport Pickup Available")),
                   ],
                 ),
               ),
@@ -322,9 +451,15 @@ class _TripFormPageState extends State<TripFormPage> {
                 "Meals & Activities",
                 Column(
                   children: [
-                    TextFormField(controller: _mealsCtrl, decoration: _inputDecoration("Meals (comma separated)")),
+                    TextFormField(
+                        controller: _mealsCtrl,
+                        decoration:
+                            _inputDecoration("Meals (comma separated)")),
                     const SizedBox(height: 12),
-                    TextFormField(controller: _activitiesCtrl, decoration: _inputDecoration("Activities (comma separated)")),
+                    TextFormField(
+                        controller: _activitiesCtrl,
+                        decoration: _inputDecoration(
+                            "Activities (comma separated)")),
                   ],
                 ),
               ),
@@ -336,28 +471,38 @@ class _TripFormPageState extends State<TripFormPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text("Itinerary", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const Text("Itinerary",
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
                         IconButton(
                           onPressed: () => setState(() {
+                            final nextDay =
+                                _itineraryControllers.length + 1;
                             _itineraryControllers.add({
-                              "day": TextEditingController(),
+                              "day": TextEditingController(
+                                  text: nextDay.toString()),
                               "desc": TextEditingController(),
                               "meals": TextEditingController(),
                               "activities": TextEditingController(),
                             });
                           }),
-                          icon: const Icon(Icons.add_circle, color: Colors.teal),
+                          icon: const Icon(Icons.add_circle,
+                              color: Colors.teal),
                         )
                       ],
                     ),
                     Column(
-                      children: _itineraryControllers.map((c) => ItineraryDayField(
-                        dayCtrl: c["day"]!,
-                        descCtrl: c["desc"]!,
-                        mealsCtrl: c["meals"]!,
-                        activitiesCtrl: c["activities"]!,
-                        onRemove: () => setState(() => _itineraryControllers.remove(c)),
-                      )).toList(),
+                      children: _itineraryControllers
+                          .map((c) => ItineraryDayField(
+                                dayCtrl: c["day"]!,
+                                descCtrl: c["desc"]!,
+                                mealsCtrl: c["meals"]!,
+                                activitiesCtrl: c["activities"]!,
+                                onRemove: () => setState(() =>
+                                    _itineraryControllers.remove(c)),
+                              ))
+                          .toList(),
                     ),
                   ],
                 ),
@@ -367,12 +512,19 @@ class _TripFormPageState extends State<TripFormPage> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: _loading ? null : _createTrip,
-                  icon: _loading ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check_circle),
+                  icon: _loading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.check_circle),
                   label: Text(_loading ? "Creating..." : "Create Package"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.teal,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),

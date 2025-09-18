@@ -275,44 +275,49 @@ class _TripBookingPageState extends State<TripBookingPage> {
                 const SizedBox(height: 24),
                 // Traveller Names Horizontal Cards
                 if (totalSelectedSeats > 0)
-                  SizedBox(
-                    height: 140,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: totalSelectedSeats,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Container(
-                            width: 170,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.shade300,
-                                  blurRadius: 4,
-                                  offset: const Offset(1, 2),
-                                ),
-                              ],
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: TextField(
-                                controller: _nameControllers[index],
-                                decoration: InputDecoration(
-                                  labelText: "Traveller ${index + 1}",
-                                  border: InputBorder.none,
-                                ),
-                              ),
-                            ),
+                   SizedBox(
+              height: 70, // ⬅ reduced height for mobile-friendliness
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: totalSelectedSeats,
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Container(
+                      width: 140, // ⬅ narrower for mobile
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.shade200,
+                            blurRadius: 3,
+                            offset: const Offset(1, 2),
                           ),
-                        );
-                      },
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        child: TextField(
+                          controller: _nameControllers[index],
+                          decoration: InputDecoration(
+                            labelText: "Traveller ${index + 1}",
+                            isDense: true, // ⬅ compact input
+                            contentPadding: const EdgeInsets.symmetric(
+                                vertical: 8, horizontal: 8),
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                  );
+                },
+              ),
+            ),
 
-                const SizedBox(height: 32),
+          const SizedBox(height: 20),
                 // Book & Pay Button
                 SizedBox(
                   width: double.infinity,

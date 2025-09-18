@@ -1,4 +1,3 @@
-// lib/screens/customer/trip_details_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -79,34 +78,13 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 📷 Trip Gallery / Main Image
+            // 📷 Trip Gallery (always at the top)
             if (trip!.gallery.isNotEmpty)
-              SizedBox(
-                height: 220,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.all(12),
-                  itemCount: trip!.gallery.length,
-                  itemBuilder: (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.network(
-                          trip!.gallery[index],
-                          width: 300,
-                          height: 220,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              )
+              _buildImageGallery("Trip Gallery", trip!.gallery)
             else if (trip!.imageUrl != null && trip!.imageUrl!.isNotEmpty)
               ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(16)),
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(16)),
                 child: Image.network(
                   trip!.imageUrl!,
                   width: double.infinity,
@@ -116,11 +94,66 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
               ),
 
             const SizedBox(height: 16),
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 🏨 Hotel Section as a Card
+                  if (trip!.hotelName != null && trip!.hotelName!.isNotEmpty)
+                    Card(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                      elevation: 3,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              trip!.hotelName!,
+                              style: const TextStyle(
+                                  fontSize: 20, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 8),
+                            if (trip!.hotelStars != null)
+                              Row(
+                                children: List.generate(
+                                  trip!.hotelStars!,
+                                  (index) => const Icon(Icons.star,
+                                      color: Colors.amber, size: 20),
+                                ),
+                              ),
+                            const SizedBox(height: 8),
+                            if (trip!.hotelDescription != null)
+                              Text(
+                                trip!.hotelDescription!,
+                                style: const TextStyle(fontSize: 15),
+                              ),
+                            const SizedBox(height: 12),
+                            if (trip!.hotelMainImage != null &&
+                                trip!.hotelMainImage!.isNotEmpty)
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  trip!.hotelMainImage!,
+                                  width: double.infinity,
+                                  height: 200,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            const SizedBox(height: 12),
+                            if (trip!.hotelGallery.isNotEmpty)
+                              _buildImageGallery(
+                                  "Hotel Gallery", trip!.hotelGallery),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Trip Info
                   Text(
                     trip!.title,
                     style: const TextStyle(
@@ -142,89 +175,76 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
                       Icons.event_seat, "Available Seats: $availableSeats"),
                   const SizedBox(height: 16),
 
-                  // 🏨 Hotel Section
-                  if (trip!.hotelName != null && trip!.hotelName!.isNotEmpty) ...[
-                    const Text(
-                      "Hotel",
-                      style:
-                      TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    if (trip!.imageUrl != null && trip!.imageUrl!.isNotEmpty)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.network(
-                          trip!.imageUrl!,
-                          width: double.infinity,
-                          height: 180,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    if (trip!.gallery.isNotEmpty)
-                      SizedBox(
-                        height: 180,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: trip!.gallery.length,
-                          itemBuilder: (context, index) {
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 12),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.network(
-                                  trip!.gallery[index],
-                                  width: 200,
-                                  height: 180,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                  ],
-
                   // 📝 Itinerary
-                  if (trip!.itinerary.isNotEmpty) ...[
-                    const Text(
-                      "Itinerary",
-                      style:
-                      TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  if (trip!.itinerary.isNotEmpty)
+                    _buildInfoCard(
+                      title: "Itinerary",
+                      children: trip!.itinerary
+                          .map(
+                            (day) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.today,
+                                      color: Colors.teal, size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      "Day ${day['day']}: ${day['description']}",
+                                      style: const TextStyle(fontSize: 15),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ),
-                    const SizedBox(height: 8),
-                    ...trip!.itinerary.map((day) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child:
-                      Text("Day ${day['day']}: ${day['description']}"),
-                    )),
-                    const SizedBox(height: 16),
-                  ],
 
                   // 🍽 Meals
-                  if (trip!.meals.isNotEmpty) ...[
-                    const Text(
-                      "Meals",
-                      style:
-                      TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  if (trip!.meals.isNotEmpty)
+                    _buildInfoCard(
+                      title: "Meals",
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.restaurant_menu,
+                                color: Colors.teal, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                                child: Text(trip!.meals.join(", "),
+                                    style: const TextStyle(fontSize: 15))),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(trip!.meals.join(", ")),
-                    const SizedBox(height: 16),
-                  ],
 
                   // 🎯 Activities
-                  if (trip!.activities.isNotEmpty) ...[
-                    const Text(
-                      "Activities",
-                      style:
-                      TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  if (trip!.activities.isNotEmpty)
+                    _buildInfoCard(
+                      title: "Activities",
+                      children: trip!.activities
+                          .map(
+                            (act) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_circle,
+                                      color: Colors.teal, size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(act,
+                                        style: const TextStyle(fontSize: 15)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ),
-                    const SizedBox(height: 8),
-                    Text(trip!.activities.join(", ")),
-                    const SizedBox(height: 24),
-                  ],
+
+                  const SizedBox(height: 24),
 
                   // Book Now Button
                   SizedBox(
@@ -233,13 +253,13 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
                       onPressed: availableSeats <= 0
                           ? null
                           : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => TripBookingPage(trip: trip!),
-                          ),
-                        );
-                      },
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TripBookingPage(trip: trip!),
+                                ),
+                              );
+                            },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         backgroundColor: Colors.teal,
@@ -266,6 +286,7 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
     );
   }
 
+  /// 🔹 Small helper to show icon + text row
   Widget _iconTextRow(IconData icon, String text,
       {Color color = Colors.teal, FontWeight fontWeight = FontWeight.normal}) {
     return Row(
@@ -276,6 +297,67 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
           child: Text(
             text,
             style: TextStyle(fontSize: 16, fontWeight: fontWeight),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 🔹 Card UI with title + children
+  Widget _buildInfoCard(
+      {required String title, required List<Widget> children}) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 🔹 Gallery Section
+  Widget _buildImageGallery(String title, List<String> images) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+        ),
+        SizedBox(
+          height: 200,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: images.length,
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.network(
+                    images[index],
+                    width: 280,
+                    height: 200,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],
