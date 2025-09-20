@@ -11,7 +11,6 @@ class TripPackage {
   final int price; // store in INR as integer
   final int capacity;
   final int bookedSeats; // total count
-  final List<int> bookedSeatsList; // ✅ seat numbers
   final String createdBy; // uid of agent
   final DateTime createdAt; // server time when created
   final String? imageUrl; // main trip image
@@ -48,7 +47,6 @@ class TripPackage {
     required this.price,
     required this.capacity,
     required this.bookedSeats,
-    required this.bookedSeatsList,
     required this.createdBy,
     required this.createdAt,
     this.imageUrl,
@@ -83,10 +81,6 @@ class TripPackage {
       price: (d['price'] as num?)?.toInt() ?? 0,
       capacity: (d['capacity'] as num?)?.toInt() ?? 0,
       bookedSeats: (d['bookedSeats'] as num?)?.toInt() ?? 0,
-      bookedSeatsList: (d['bookedSeatsList'] as List?)
-          ?.map((e) => (e as num).toInt())
-          .toList() ??
-          [],
       createdBy: d['createdBy'] ?? '',
       createdAt: (d['createdAt'] is Timestamp)
           ? (d['createdAt'] as Timestamp).toDate()
@@ -129,7 +123,6 @@ class TripPackage {
       'price': price,
       'capacity': capacity,
       'bookedSeats': bookedSeats,
-      'bookedSeatsList': bookedSeatsList,
       'createdBy': createdBy,
       'createdAt': Timestamp.fromDate(createdAt),
       'imageUrl': imageUrl,

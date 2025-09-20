@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
+import '../models/user_model.dart';
+import '../models/feedback_model.dart';
 
 class FeedbackService {
   static final _firestore = FirebaseFirestore.instance;
 
-  /// Submit feedback for a trip
+  /// Submit feedback for a trip (with username)
   static Future<void> submitFeedback({
     required String tripId,
     required String userId,
@@ -13,14 +15,31 @@ class FeedbackService {
   }) async {
     final feedbackRef = _firestore.collection("feedback").doc();
 
-    await feedbackRef.set({
-      "id": feedbackRef.id,
-      "tripId": tripId,
-      "userId": userId,
-      "rating": rating,
-      "comment": comment,
-      "createdAt": FieldValue.serverTimestamp(),
-    });
+    String? username;
+
+    try {
+      // Fetch username
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (userDoc.exists && userDoc.data() != null) {
+        final user = AppUser.fromDoc(userDoc);
+        username = user.name ?? 'Anonymous';
+      }
+    } catch (e) {
+      debugPrint("Error fetching user or trip info: $e");
+    }
+
+    final feedback = FeedbackModel(
+      id: feedbackRef.id,
+      userId: userId,
+      tripId: tripId,
+      comment: comment,
+      rating: rating,
+      createdAt: DateTime.now(),
+      username: username ?? "Anonymous",
+    );
+
+    await feedbackRef.set(feedback.toMap());
+    await updateTripAverageRating(tripId);
   }
 
   /// Delete feedback by ID
@@ -47,7 +66,8 @@ class FeedbackService {
   }
 
   /// Get feedback submitted by a specific user for a trip (limit 1)
-  static Stream<QuerySnapshot<Map<String, dynamic>>> getUserTripFeedback(String tripId, String userId) {
+  static Stream<QuerySnapshot<Map<String, dynamic>>> getUserTripFeedback(
+      String tripId, String userId) {
     return _firestore
         .collection('feedback')
         .where('tripId', isEqualTo: tripId)
@@ -56,44 +76,46 @@ class FeedbackService {
         .snapshots();
   }
 
-  /// Fetch feedbacks with usernames (for showing in UI)
-  static Future<List<Map<String, dynamic>>> getTripFeedbackWithUsernames(String tripId) async {
-    final feedbackSnapshot = await _firestore
+  /// Stream feedbacks with usernames (live updates)
+  static Stream<List<FeedbackModel>> getTripFeedbackWithUsernamesStream(String tripId) {
+    return _firestore
         .collection('feedback')
         .where('tripId', isEqualTo: tripId)
         .orderBy('createdAt', descending: true)
-        .get();
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => FeedbackModel.fromDoc(doc)).toList();
+    });
+  }
 
-    final feedbacks = feedbackSnapshot.docs;
+  /// Recalculate and update the average rating for a trip
+  static Future<void> updateTripAverageRating(String tripId) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('feedback')
+          .where('tripId', isEqualTo: tripId)
+          .get();
 
-    // Fetch usernames for each feedback
-    final results = await Future.wait(feedbacks.map((doc) async {
-      final data = doc.data();
-      final userId = data['userId'] as String?;
-
-      String username = 'Anonymous';
-      if (userId != null && userId.isNotEmpty) {
-        try {
-          final userDoc = await _firestore.collection('users').doc(userId).get();
-          if (userDoc.exists) {
-            final userData = userDoc.data();
-            if (userData != null && userData.containsKey('name')) {
-              username = userData['name'] ?? 'Anonymous';
-            }
-          }
-        } catch (e) {
-          debugPrint("Error fetching username for $userId: $e");
-          // Keep username as 'Anonymous' on error
-        }
+      if (querySnapshot.docs.isEmpty) {
+        // No feedbacks yet — set avgRating to null or 0
+        await _firestore.collection('trip_packages').doc(tripId).update({'avgRating': null});
+        return;
       }
 
-      return {
-        ...data,
-        'username': username, // include actual username in feedback
-      };
-    }).toList());
+      final totalRating = querySnapshot.docs.fold<int>(
+        0,
+            (sum, doc) => sum + (doc.data()['rating'] ?? 0) as int,
+      );
 
-    return results;
+      final avgRating = totalRating / querySnapshot.docs.length;
+
+      await _firestore
+          .collection('trip_packages')
+          .doc(tripId)
+          .update({'avgRating': avgRating});
+    } catch (e) {
+      debugPrint('Error updating avgRating: $e');
+    }
   }
 
 }

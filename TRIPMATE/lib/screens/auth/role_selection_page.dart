@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'auth_page.dart';
-import '../theme.dart';
+import '../../theme.dart';
 
 class RoleSelectionPage extends StatelessWidget {
   const RoleSelectionPage({super.key});

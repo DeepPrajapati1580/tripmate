@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import '../../models/trip_package.dart';
+import '../../../models/trip_package.dart';
 import 'trip_booking_page.dart';
 
 class TripDetailsPage extends StatefulWidget {

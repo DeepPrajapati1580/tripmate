@@ -1,8 +1,8 @@
 // lib/screens/auth_page.dart
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
-import '../../models/user_model.dart'; // AppUser
-import '../main.dart'; // for AuthWrapper
+import '../../services/auth_service.dart';
+import '../../../models/user_model.dart'; // AppUser
+import '../../main.dart'; // for AuthWrapper
 
 class AuthPage extends StatefulWidget {
   final String role;
@@ -40,63 +40,62 @@ class _AuthPageState extends State<AuthPage> {
     super.dispose();
   }
 
-Future<void> _submit() async {
-  if (!_formKey.currentState!.validate()) return;
-  setState(() => _loading = true);
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _loading = true);
 
-  try {
-    if (isLogin) {
-      // Login
-      final AppUser? user = await AuthService.signInWithRole(
-        _email.text.trim(),
-        _password.text.trim(),
-        widget.role,
-      );
-
-      if (user == null) {
-        if (mounted) _show("Login failed. Please check credentials.");
-        return;
-      }
-
-      if (mounted) {
-        _show('Logged in as ${user.role}');
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const AuthWrapper()),
+    try {
+      if (isLogin) {
+        // Login
+        final AppUser? user = await AuthService.signInWithRole(
+          _email.text.trim(),
+          _password.text.trim(),
+          widget.role,
         );
-      }
-    } else {
-      // Signup
-      final extra = widget.role == 'travel_agent'
-          ? {'agencyName': _agency.text.trim()}
-          : null;
 
-      await AuthService.signUp(
-        email: _email.text.trim(),
-        password: _password.text.trim(),
-        role: widget.role,
-        displayName: _name.text.trim(),
-        extraFields: extra,
-      );
+        if (user == null) {
+          if (mounted) _show("Login failed. Please check credentials or role.");
+          return;
+        }
 
-      if (mounted) {
-        _show(widget.role == 'customer'
-            ? 'Signup successful — you are logged in'
-            : 'Signup successful — pending admin approval');
+        if (mounted) {
+          _show('Welcome, ${user.name ?? user.email}');
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AuthWrapper()),
+          );
+        }
+      } else {
+        // Signup
+        final extra = widget.role == 'travel_agent'
+            ? {'agencyName': _agency.text.trim()}
+            : null;
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const AuthWrapper()),
+        await AuthService.signUp(
+          email: _email.text.trim(),
+          password: _password.text.trim(),
+          role: widget.role,
+          displayName: _name.text.trim(),
+          extraFields: extra,
         );
+
+        if (mounted) {
+          _show(widget.role == 'customer'
+              ? 'Signup successful — you are logged in'
+              : 'Signup successful — pending admin approval');
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AuthWrapper()),
+          );
+        }
       }
+    } catch (e) {
+      if (mounted) _show(e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-  } catch (e) {
-    if (mounted) _show(e.toString());
-  } finally {
-    if (mounted) setState(() => _loading = false);
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -123,6 +122,8 @@ Future<void> _submit() async {
                         TextFormField(
                           controller: _name,
                           decoration: const InputDecoration(labelText: 'Full name'),
+                          validator: (v) =>
+                          v != null && v.trim().isNotEmpty ? null : 'Full name is required',
                         ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -140,8 +141,19 @@ Future<void> _submit() async {
                         obscureText: true,
                         validator: (v) => v != null && v.length >= 6
                             ? null
-                            : 'Password min 6 chars',
+                            : 'Password must be at least 6 characters',
                       ),
+                      if (!isLogin && widget.role == 'travel_agent') ...[
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _agency,
+                          decoration: const InputDecoration(labelText: 'Agency Name'),
+                          validator: (v) =>
+                          v != null && v.trim().isNotEmpty
+                              ? null
+                              : 'Agency name is required',
+                        ),
+                      ],
                       const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
@@ -169,7 +181,7 @@ Future<void> _submit() async {
                   ),
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),

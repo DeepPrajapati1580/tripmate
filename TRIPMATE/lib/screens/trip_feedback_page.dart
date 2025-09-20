@@ -1,8 +1,9 @@
 // lib/screens/customer/trip_feedback_page.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/feedback_service.dart';
+import '../models/feedback_model.dart';
 
 class TripFeedbackPage extends StatefulWidget {
   final String tripId;
@@ -54,11 +55,20 @@ class _TripFeedbackPageState extends State<TripFeedbackPage> {
     } finally {
       setState(() => _loading = false);
     }
+    await FeedbackService.updateTripAverageRating(widget.tripId);
   }
 
   Future<void> _deleteFeedback(String feedbackId) async {
     try {
+      final doc = await FirebaseFirestore.instance.collection('feedback').doc(feedbackId).get();
+      final tripId = doc.data()?['tripId'];
+
       await FeedbackService.deleteFeedback(feedbackId);
+
+      if (tripId != null) {
+        await FeedbackService.updateTripAverageRating(tripId); // ✅ Correct method call
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Feedback deleted successfully")),
       );
@@ -106,213 +116,182 @@ class _TripFeedbackPageState extends State<TripFeedbackPage> {
         title: const Text("Trip Feedback"),
         backgroundColor: Colors.teal,
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FeedbackService.getTripFeedback(widget.tripId),
+      body: StreamBuilder<List<FeedbackModel>>(
+        stream: FeedbackService.getTripFeedbackWithUsernamesStream(widget.tripId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final feedbackDocs = snapshot.data?.docs ?? [];
+          final feedbacks = snapshot.data ?? [];
 
-          // Convert to list of maps and fetch usernames asynchronously
-          return FutureBuilder<List<Map<String, dynamic>>>(
-            future: Future.wait(feedbackDocs.map((doc) async {
-              final data = doc.data();
-              String username = 'Anonymous';
-              try {
-                final userDoc = await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(data['userId'])
-                    .get();
-                if (userDoc.exists && userDoc.data() != null) {
-                  username = userDoc.data()!['name'] ?? 'Anonymous';
-                }
-              } catch (_) {}
-              return {...data, 'username': username};
-            })),
-            builder: (context, snapshotWithUsers) {
-              if (!snapshotWithUsers.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
+          // Find feedback by current user
+          final userFeedback = feedbacks.firstWhere(
+                (fb) => fb.userId == user.uid,
+            orElse: () => FeedbackModel(
+              id: '',
+              tripId: '',
+              userId: '',
+              username: null, // ✅ username can be null
+              rating: 0,
+              comment: '',
+              createdAt: DateTime.now(),
+            ),
+          );
 
-              final feedbacks = snapshotWithUsers.data!;
-              final userFeedback = feedbacks.firstWhere(
-                    (fb) => fb['userId'] == user.uid,
-                orElse: () => {},
-              );
-              final showForm = userFeedback.isEmpty;
+// Show form only if the user has not submitted feedback
+          final showForm = userFeedback.userId.isEmpty;
 
-              return Column(
-                children: [
-                  // ---------- Feedback Form ----------
-                  if (showForm)
-                    Padding(
+
+          return Column(
+            children: [
+              // ---------- Feedback Form ----------
+              if (showForm)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Card(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    elevation: 3,
+                    child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Card(
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        elevation: 3,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              children: [
-                                const Text(
-                                  "Rate your trip",
-                                  style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 10),
-                                _buildRatingStars(
-                                    rating: _rating, interactive: true),
-                                const SizedBox(height: 12),
-                                TextFormField(
-                                  controller: _feedbackController,
-                                  maxLines: 4,
-                                  maxLength: 250,
-                                  decoration: InputDecoration(
-                                    labelText: "Your Feedback",
-                                    border: OutlineInputBorder(
-                                        borderRadius:
-                                        BorderRadius.circular(8)),
-                                    counterText: "",
-                                    contentPadding:
-                                    const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 10),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return "Feedback is required";
-                                    }
-                                    if (value.trim().length > 250) {
-                                      return "Feedback must be within 250 characters";
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed:
-                                    _loading ? null : _submitFeedback,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.teal,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 14),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    child: _loading
-                                        ? const CircularProgressIndicator(
-                                        color: Colors.white)
-                                        : const Text("Submit Feedback",
-                                        style: TextStyle(fontSize: 16)),
-                                  ),
-                                ),
-                              ],
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            const Text(
+                              "Rate your trip",
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
                             ),
-                          ),
+                            const SizedBox(height: 10),
+                            _buildRatingStars(
+                                rating: _rating, interactive: true),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _feedbackController,
+                              maxLines: 4,
+                              maxLength: 250,
+                              decoration: InputDecoration(
+                                labelText: "Your Feedback",
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8)),
+                                counterText: "",
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return "Feedback is required";
+                                }
+                                if (value.trim().length > 250) {
+                                  return "Feedback must be within 250 characters";
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _loading ? null : _submitFeedback,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.teal,
+                                  padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: _loading
+                                    ? const CircularProgressIndicator(
+                                    color: Colors.white)
+                                    : const Text("Submit Feedback",
+                                    style: TextStyle(fontSize: 16)),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
+                  ),
+                ),
 
-                  const Divider(height: 1),
+              const Divider(height: 1),
 
-                  // ---------- Feedback List ----------
-                  Expanded(
-                    child: feedbacks.isEmpty
-                        ? const Center(child: Text("No feedback yet."))
-                        : ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 8, horizontal: 12),
-                      itemCount: feedbacks.length,
-                      itemBuilder: (context, index) {
-                        final fb = feedbacks[index];
-                        final rating = fb['rating'] ?? 0;
-                        final comment = fb['comment'] ?? '';
-                        final userName = fb['username'] ?? 'Anonymous';
-                        final userId = fb['userId'] ?? '';
-                        final createdAt =
-                        (fb['createdAt'] as Timestamp?)?.toDate();
-                        final feedbackId = fb['id'] ?? '';
+              // ---------- Feedback List ----------
+              Expanded(
+                child: feedbacks.isEmpty
+                    ? const Center(child: Text("No feedback yet."))
+                    : ListView.builder(
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 8, horizontal: 12),
+                  itemCount: feedbacks.length,
+                  itemBuilder: (context, index) {
+                    final fb = feedbacks[index];
 
-                        final isOwner = user.uid == userId;
+                    final isOwner = user.uid == fb.userId;
 
-                        return Card(
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          elevation: 2,
-                          margin:
-                          const EdgeInsets.symmetric(vertical: 6),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                    return Card(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      elevation: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      backgroundColor: Colors.teal,
-                                      child: Text(
-                                        userName.isNotEmpty
-                                            ? userName[0].toUpperCase()
-                                            : "A",
-                                        style: const TextStyle(
-                                            color: Colors.white),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        userName,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16),
-                                      ),
-                                    ),
-                                    Text(
-                                      createdAt != null
-                                          ? "${createdAt.toLocal()}"
-                                          .split(".")
-                                          .first
-                                          : "",
-                                      style: const TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 12),
-                                    ),
-                                    if (isOwner)
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete,
-                                          color: Colors.red,
-                                        ),
-                                        onPressed: () =>
-                                            _deleteFeedback(feedbackId),
-                                      ),
-                                  ],
+                                CircleAvatar(
+                                  backgroundColor: Colors.teal,
+                                  child: Text(
+                                    (fb.username?.isNotEmpty == true
+                                        ? fb.username![0].toUpperCase()
+                                        : "A"),
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+
                                 ),
-                                const SizedBox(height: 8),
-                                _buildRatingStars(rating: rating),
-                                const SizedBox(height: 6),
-                                Text(comment,
-                                    style:
-                                    const TextStyle(fontSize: 14)),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    fb.username ?? 'Anonymous',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16),
+                                  ),
+                                ),
+                                Text(
+                                  "${fb.createdAt.toLocal()}".split(".").first,
+                                  style: const TextStyle(
+                                      color: Colors.grey, fontSize: 12),
+                                ),
+                                if (isOwner)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: () =>
+                                        _deleteFeedback(fb.id),
+                                  ),
                               ],
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              );
-            },
+                            const SizedBox(height: 8),
+                            _buildRatingStars(rating: fb.rating),
+                            const SizedBox(height: 6),
+                            Text(fb.comment,
+                                style: const TextStyle(fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),

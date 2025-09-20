@@ -4,13 +4,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 
-import 'screens/role_selection_page.dart';
-import 'screens/pending_approval_page.dart';
+import 'screens/auth/role_selection_page.dart';
+import 'screens/auth/pending_approval_page.dart';
 import 'screens/customer_home.dart';
 import 'screens/agent_home.dart';
 import 'screens/admin_home.dart';
-import 'screens/auth_page.dart';
-import 'screens/reset_password_page.dart';
+import 'screens/auth/auth_page.dart';
+import 'screens/auth/reset_password_page.dart';
 import 'screens/auth/login_screen.dart';
 
 import 'package:cloudinary_url_gen/cloudinary.dart';

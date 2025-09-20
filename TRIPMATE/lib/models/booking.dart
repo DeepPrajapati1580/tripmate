@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum BookingStatus { pending, paid, cancelled }
+enum BookingStatus { paid, cancelled }
 
 class Booking {
   final String id;
@@ -30,7 +30,7 @@ class Booking {
   });
 
   factory Booking.fromMap(String id, Map<String, dynamic> map) {
-    // handles Firestore Timestamp or DateTime
+    // Handle Firestore Timestamp or DateTime
     final created = map['createdAt'];
     DateTime createdAt;
     if (created is Timestamp) {
@@ -45,15 +45,19 @@ class Booking {
     final paid = map['paidAt'];
     if (paid is Timestamp) {
       paidAt = paid.toDate();
-    } else if (paid is DateTime) paidAt = paid;
+    } else if (paid is DateTime) {
+      paidAt = paid;
+    }
 
-    BookingStatus status = BookingStatus.pending;
-    if (map['status'] != null) {
-      try {
-        status = BookingStatus.values.firstWhere((e) => e.name == map['status']);
-      } catch (_) {
-        status = BookingStatus.pending;
-      }
+    // Map status string to enum
+    BookingStatus status;
+    final statusStr = (map['status'] ?? '').toString().toLowerCase();
+    if (statusStr == 'paid') {
+      status = BookingStatus.paid;
+    } else if (statusStr == 'cancelled') {
+      status = BookingStatus.cancelled;
+    } else {
+      status = BookingStatus.paid; // default fallback
     }
 
     return Booking(
@@ -77,7 +81,7 @@ class Booking {
       "userId": userId,
       "seats": seats,
       "amount": amount,
-      "status": status.name,
+      "status": status.name, // store as string in Firestore
       "createdAt": createdAt,
       "travellers": travellers,
       "paymentId": paymentId,

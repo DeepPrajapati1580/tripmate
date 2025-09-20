@@ -99,4 +99,21 @@ static Future<AppUser?> signInWithRole(String email, String password, String rol
 
   /// Get current logged-in Firebase User
   static User? get firebaseUser => _auth.currentUser;
+
+  /// Get username by userId
+  static Future<String> getUsername(String userId) async {
+    try {
+      final doc = await _db.collection('users').doc(userId).get();
+      if (doc.exists) {
+        final data = doc.data();
+        // Assuming you store the user's name in the 'name' field
+        return data?['name'] ?? userId;
+      }
+      return userId; // fallback if user not found
+    } catch (e) {
+      print("Error fetching username: $e");
+      return userId; // fallback in case of error
+    }
+  }
+
 }

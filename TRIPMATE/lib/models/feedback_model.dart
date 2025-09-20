@@ -5,20 +5,20 @@ class FeedbackModel {
 
   final String id;
   final String userId;
-  final String agentId;
   final String tripId;
   final String comment;
   final int rating; // 1-5 stars
   final DateTime createdAt;
+  final String? username; // ✅ new field
 
   FeedbackModel({
     required this.id,
     required this.userId,
-    required this.agentId,
     required this.tripId,
     required String comment,
     required this.rating,
     required this.createdAt,
+    this.username, // ✅ optional username
   }) : comment = comment.length > maxCommentLength
       ? comment.substring(0, maxCommentLength) // ✅ auto-truncate
       : comment;
@@ -26,33 +26,33 @@ class FeedbackModel {
   FeedbackModel copyWith({
     String? id,
     String? userId,
-    String? agentId,
     String? tripId,
     String? comment,
     int? rating,
     DateTime? createdAt,
+    String? username,
   }) {
     return FeedbackModel(
       id: id ?? this.id,
       userId: userId ?? this.userId,
-      agentId: agentId ?? this.agentId,
       tripId: tripId ?? this.tripId,
       comment: (comment ?? this.comment).length > maxCommentLength
           ? (comment ?? this.comment).substring(0, maxCommentLength)
           : (comment ?? this.comment),
       rating: rating ?? this.rating,
       createdAt: createdAt ?? this.createdAt,
+      username: username ?? this.username,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'userId': userId,
-      'agentId': agentId,
       'tripId': tripId,
       'comment': comment,
       'rating': rating,
       'createdAt': Timestamp.fromDate(createdAt),
+      if (username != null) 'username': username, // ✅ store username if present
     };
   }
 
@@ -61,7 +61,6 @@ class FeedbackModel {
     return FeedbackModel(
       id: doc.id,
       userId: data['userId'] ?? '',
-      agentId: data['agentId'] ?? '',
       tripId: data['tripId'] ?? '',
       comment: (data['comment'] ?? '').toString().substring(
           0,
@@ -70,6 +69,7 @@ class FeedbackModel {
               : (data['comment'] ?? '').toString().length),
       rating: (data['rating'] as num?)?.toInt() ?? 0,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+      username: data['username'], // ✅ try reading from Firestore if exists
     );
   }
 
@@ -78,7 +78,6 @@ class FeedbackModel {
     return FeedbackModel(
       id: id,
       userId: data['userId'] ?? '',
-      agentId: data['agentId'] ?? '',
       tripId: data['tripId'] ?? '',
       comment: rawComment.toString().substring(
           0,
@@ -87,6 +86,7 @@ class FeedbackModel {
               : rawComment.toString().length),
       rating: (data['rating'] as num?)?.toInt() ?? 0,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+      username: data['username'], // ✅ support from map as well
     );
   }
 

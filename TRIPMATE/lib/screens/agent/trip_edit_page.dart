@@ -49,7 +49,6 @@ class _TripEditPageState extends State<TripEditPage> {
   List<String> _activities = [];
   bool _airportPickup = false;
   List<Map<String, dynamic>> _itinerary = [];
-  List<int> _bookedSeatsList = [];
 
   bool _loading = true;
 
@@ -88,8 +87,6 @@ class _TripEditPageState extends State<TripEditPage> {
       _activities = List.from(trip.activities);
       _airportPickup = trip.airportPickup;
       _itinerary = List.from(trip.itinerary);
-
-      _bookedSeatsList = List.from(trip.bookedSeatsList);
 
       _loading = false;
     });
@@ -162,7 +159,6 @@ class _TripEditPageState extends State<TripEditPage> {
       activities: _activities,
       airportPickup: _airportPickup,
       itinerary: _itinerary,
-      bookedSeatsList: _bookedSeatsList,
     );
 
     if (mounted) {
