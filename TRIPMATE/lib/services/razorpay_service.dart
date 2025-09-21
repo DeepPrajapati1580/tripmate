@@ -1,5 +1,6 @@
 // lib/services/razorpay_service.dart
-import 'dart:convert';
+import 'dart:convert';import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -10,6 +11,8 @@ class RazorpayService {
   static late Razorpay _razorpay;
   static BuildContext? _ctx;
   static String? _currentBookingId;
+  static String? _currentTripId; // store tripId for cancellation
+
 
   /// Initialize Razorpay instance; call once in initState
   static void init(BuildContext ctx) {
@@ -46,10 +49,12 @@ class RazorpayService {
     required String orderId,
     required int amountInPaise,
     required String bookingId,
+    required String tripId,
     String? prefillContact,
     String? prefillEmail,
   }) {
     _currentBookingId = bookingId;
+    _currentTripId = tripId;
 
     final options = {
       'key': RAZORPAY_KEY_ID,
@@ -75,8 +80,21 @@ class RazorpayService {
     }
   }
 
+  /// ✅ Cancel current booking safely
+  static Future<void> _safeCancelBooking() async {
+    if (_currentBookingId != null) {
+      try {
+        await BookingService.cancelBookingForUser(_currentBookingId!,_currentTripId!);
+      } catch (e) {
+        debugPrint('Error cancelling booking $_currentBookingId: $e');
+      } finally {
+        _currentBookingId = null;
+      }
+    }
+  }
+
   static void _handlePaymentSuccess(PaymentSuccessResponse response) async {
-    if (_ctx == null || _currentBookingId == null) return;
+    if (_ctx == null || _currentBookingId == null || _currentTripId == null) return;
 
     try {
       final verifyUrl = Uri.parse('$SERVER_CREATE_ORDER_URL/verify_payment');
@@ -92,33 +110,39 @@ class RazorpayService {
       );
 
       if (res.statusCode == 200) {
-        // Server verified and updated booking
+        // Server verified, mark booking as paid
+        await BookingService.markBookingPaid(
+          bookingId: _currentBookingId!,
+          paymentId: response.paymentId!,
+          razorpayOrderId: response.orderId!,
+        );
+
         ScaffoldMessenger.of(_ctx!).showSnackBar(
           const SnackBar(content: Text('Payment successful and verified!')),
         );
+
+        // ✅ No need to decrement availableSeats here, already updated in bookTrip
+        _currentBookingId = null;
+        _currentTripId = null;
+
       } else {
-        // Verification failed: cancel booking
-        await BookingService.cancelBooking(_currentBookingId!);
+        // Verification failed: cancel booking and revert seats
+        await BookingService.cancelBookingForUser(_currentBookingId!, _currentTripId!);
         ScaffoldMessenger.of(_ctx!).showSnackBar(
           SnackBar(content: Text('Payment verification failed: ${res.body}')),
         );
       }
     } catch (e) {
-      // Network or unexpected error: cancel booking
-      await BookingService.cancelBooking(_currentBookingId!);
+      await BookingService.cancelBookingForUser(_currentBookingId!, _currentTripId!);
       ScaffoldMessenger.of(_ctx!).showSnackBar(
         SnackBar(content: Text('Payment succeeded but verification error: $e')),
       );
-    } finally {
-      _currentBookingId = null;
     }
   }
 
+
   static void _handlePaymentError(PaymentFailureResponse response) async {
-    if (_currentBookingId != null) {
-      await BookingService.cancelBooking(_currentBookingId!);
-      _currentBookingId = null;
-    }
+    await _safeCancelBooking();
     if (_ctx != null) {
       ScaffoldMessenger.of(_ctx!).showSnackBar(
         SnackBar(content: Text('Payment failed: ${response.message}')),

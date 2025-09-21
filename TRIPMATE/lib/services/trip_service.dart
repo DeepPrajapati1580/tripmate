@@ -163,39 +163,44 @@ class TripService {
         final data = snapshot.data() as Map<String, dynamic>;
         final bookedSeats = (data['bookedSeats'] as num?)?.toInt() ?? 0;
         final capacity = (data['capacity'] as num?)?.toInt() ?? 0;
+        final availableSeats = (data['availableSeats'] as num?)
+            ?.toInt() ??
+            (capacity - bookedSeats);
 
-        if (bookedSeats + travellers.length > capacity) {
+        if (travellers.length > availableSeats) {
           throw Exception("Not enough seats available");
         }
 
-        // ✅ safer: manually merge travellers list
+        // Merge travellers
         final existingTravellers = List<Map<String, dynamic>>.from(data['travellers'] ?? []);
         final updatedTravellers = [...existingTravellers, ...travellers];
 
+        // Update trip document
         txn.update(tripRef, {
           'bookedSeats': bookedSeats + travellers.length,
+          'availableSeats': availableSeats - travellers.length,
           'travellers': updatedTravellers,
         });
       });
 
-      // Fetch trip again
+      // Fetch trip price
       final tripSnapshot = await tripRef.get();
       final tripData = tripSnapshot.data() as Map<String, dynamic>;
       final price = (tripData['price'] as num?)?.toInt() ?? 0;
 
-      // Add booking record
+      // Add booking record (status: pending or paid after Razorpay success)
       await _bookings.add({
         'tripPackageId': tripId,
         'userId': user.uid,
         'travellers': travellers,
         'seats': travellers.length,
         'amount': travellers.length * price,
-        'status': 'paid',
+        'status': 'paid', // mark as paid only after Razorpay success
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
       print("❌ Booking failed: $e");
-      rethrow; // so UI can handle gracefully
+      rethrow;
     }
   }
 
@@ -227,19 +232,8 @@ class TripService {
   static Future<DocumentSnapshot<Map<String, dynamic>>> getTrip(String id) =>
       _col.doc(id).get();
 
-  /// Delete a trip along with all its bookings and feedback
-  /// ✅ Cancel a booking (decrement bookedSeats & remove travellers)
-  static Future<void> cancelBooking(String bookingId) async {
-    final bookingRef = _bookings.doc(bookingId);
-    final bookingSnap = await bookingRef.get();
-
-    if (!bookingSnap.exists) throw Exception("Booking not found");
-
-    final bookingData = bookingSnap.data() as Map<String, dynamic>;
-    final tripId = bookingData['tripPackageId'] as String;
-    final travellers = List<Map<String, dynamic>>.from(bookingData['travellers'] ?? []);
-    final seats = (bookingData['seats'] as num?)?.toInt() ?? travellers.length;
-
+  /// ✅ Cancel all bookings of a specific user for a specific trip
+  static Future<void> cancelUserBookingsForTrip(String tripId, String userId) async {
     final tripRef = _col.doc(tripId);
 
     await FirebaseFirestore.instance.runTransaction((txn) async {
@@ -247,24 +241,37 @@ class TripService {
       if (!tripSnap.exists) throw Exception("Trip not found");
 
       final tripData = tripSnap.data() as Map<String, dynamic>;
-      final bookedSeats = (tripData['bookedSeats'] as num?)?.toInt() ?? 0;
-
-      // ✅ Decrement seats, but never go negative
-      final newSeats = (bookedSeats - seats).clamp(0, bookedSeats);
-
-      // ✅ Remove travellers of this booking from the trip's travellers list
       final existingTravellers = List<Map<String, dynamic>>.from(tripData['travellers'] ?? []);
-      final updatedTravellers = existingTravellers
-          .where((t) => !travellers.contains(t))
-          .toList();
+      var bookedSeats = (tripData['bookedSeats'] as num?)?.toInt() ?? 0;
 
+      // Fetch all bookings for this trip by this user
+      final bookingsQuery = await _bookings
+          .where('tripPackageId', isEqualTo: tripId)
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      for (var bookingSnap in bookingsQuery.docs) {
+        final bookingData = bookingSnap.data();
+        final travellers = List<Map<String, dynamic>>.from(bookingData['travellers'] ?? []);
+        final seats = (bookingData['seats'] as num?)?.toInt() ?? travellers.length;
+
+        // Remove travellers of this booking from the trip's travellers list
+        for (var t in travellers) {
+          existingTravellers.removeWhere((et) => et['seatNumber'] == t['seatNumber'] && et['name'] == t['name']);
+        }
+
+        // Decrement bookedSeats safely
+        bookedSeats = (bookedSeats - seats).clamp(0, bookedSeats);
+
+        // Delete the booking itself
+        txn.delete(bookingSnap.reference);
+      }
+
+      // Update trip with new bookedSeats and travellers
       txn.update(tripRef, {
-        'bookedSeats': newSeats,
-        'travellers': updatedTravellers,
+        'bookedSeats': bookedSeats,
+        'travellers': existingTravellers,
       });
-
-      // ✅ Delete the booking itself
-      txn.delete(bookingRef);
     });
   }
 

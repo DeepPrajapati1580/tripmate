@@ -1,4 +1,5 @@
 // lib/screens/customer/my_bookings_page.dart
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../models/trip_package.dart';
@@ -261,23 +262,46 @@ class MyBookingsPage extends StatelessWidget {
                                           final confirm = await showDialog<bool>(
                                             context: context,
                                             builder: (context) => AlertDialog(
-                                              title: const Text("Confirm Cancellation"),
+                                              backgroundColor: Colors.white, // ✅ ensures visible background
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(16), // rounded corners
+                                              ),
+                                              title: const Text(
+                                                "Confirm Cancellation",
+                                                style: TextStyle(
+                                                  color: Colors.black87,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
                                               content: const Text(
-                                                  "Are you sure you want to cancel this booking? This action cannot be undone."),
+                                                "Are you sure you want to cancel this booking? This action cannot be undone.",
+                                                style: TextStyle(
+                                                  color: Colors.black87,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
                                               actions: [
                                                 TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(context, false),
+                                                  onPressed: () => Navigator.pop(context, false),
+                                                  style: TextButton.styleFrom(
+                                                    backgroundColor: Colors.grey[200], // light grey button
+                                                    foregroundColor: Colors.black87,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                  ),
                                                   child: const Text("No"),
                                                 ),
                                                 TextButton(
-                                                  // ✅ Use a neutral color instead of red
-                                                  onPressed: () =>
-                                                      Navigator.pop(context, true),
-                                                  child: const Text(
-                                                    "Yes, Cancel",
-                                                    style: TextStyle(color: Colors.redAccent),
+                                                  onPressed: () => Navigator.pop(context, true),
+                                                  style: TextButton.styleFrom(
+                                                    backgroundColor: Colors.red[50], // light red background
+                                                    foregroundColor: Colors.redAccent, // red text
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
                                                   ),
+                                                  child: const Text("Yes, Cancel"),
                                                 ),
                                               ],
                                             ),
@@ -285,15 +309,17 @@ class MyBookingsPage extends StatelessWidget {
 
                                           if (confirm == true) {
                                             try {
-                                              await BookingService.deleteBooking(booking.id);
+                                              final userId = FirebaseAuth.instance.currentUser!.uid;
+                                              final tripId = booking.tripPackageId;
+
+                                              await BookingService.cancelBookingForUser(userId, tripId);
+
                                               ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(
-                                                    content:
-                                                    Text("Booking cancelled successfully")),
+                                                const SnackBar(content: Text("All your bookings for this trip have been cancelled successfully")),
                                               );
                                             } catch (e) {
                                               ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(content: Text("Error: $e")),
+                                                SnackBar(content: Text("Error cancelling booking: $e")),
                                               );
                                             }
                                           }

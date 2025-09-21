@@ -2,11 +2,12 @@
 import 'dart:typed_data';
 import 'package:cloudinary_public/cloudinary_public.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class CloudinaryUploader {
   static final cloudinary = CloudinaryPublic(
-    'dbdhnrhur',        // cloud name
-    'tripmate_preset', // unsigned preset
+    dotenv.env['CLOUDINARY_CLOUD_NAME']!,
+    dotenv.env['CLOUDINARY_UPLOAD_PRESET']!,
     cache: false,
   );
 

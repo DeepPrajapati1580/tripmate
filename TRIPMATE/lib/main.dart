@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'screens/auth/role_selection_page.dart';
 import 'screens/auth/pending_approval_page.dart';
@@ -20,15 +21,19 @@ import 'theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  print("Starting main...");
+
+  await dotenv.load(fileName: ".env");
+  print("Loaded .env");
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-
-  CloudinaryContext.cloudinary = Cloudinary.fromCloudName(cloudName: 'dbdhnrhur');
+  print("Firebase initialized");
 
   runApp(const TripMateApp());
 }
+
 
 class TripMateApp extends StatelessWidget {
   const TripMateApp({super.key});

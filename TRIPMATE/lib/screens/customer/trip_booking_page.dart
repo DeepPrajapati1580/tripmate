@@ -20,11 +20,11 @@ class _TripBookingPageState extends State<TripBookingPage> {
   late List<TextEditingController> _nameControllers;
   late Razorpay _razorpay;
   List<Map<String, dynamic>> _pendingTravellers = [];
+  int? _availableSeats; // ⬅ Firestore field
 
   int get totalSelectedSeats => _roomsFor1 * 1 + _roomsFor2 * 2;
 
-  int get availableSeats =>
-      widget.trip.capacity - (widget.trip.bookedSeats);
+  int get availableSeats => _availableSeats ?? 0;
 
   @override
   void initState() {
@@ -34,6 +34,22 @@ class _TripBookingPageState extends State<TripBookingPage> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWallet);
+
+    _fetchAvailableSeats(); // ⬅ load from Firestore
+  }
+
+  Future<void> _fetchAvailableSeats() async {
+    final tripSnap = await FirebaseFirestore.instance
+        .collection('trip_packages')
+        .doc(widget.trip.id)
+        .get();
+
+    if (tripSnap.exists) {
+      setState(() {
+        _availableSeats = tripSnap['availableSeats'] ??
+            (tripSnap['capacity'] ?? 0) - (tripSnap['bookedSeats'] ?? 0);
+      });
+    }
   }
 
   @override
@@ -100,19 +116,24 @@ class _TripBookingPageState extends State<TripBookingPage> {
         if (!snapshot.exists) throw Exception("Trip package not found");
 
         final currentSeats = snapshot['bookedSeats'] ?? 0;
-        final currentTravellers = List<Map<String, dynamic>>.from(
-          (snapshot['travellers'] ?? []),
-        );
+        final currentTravellers =
+        List<Map<String, dynamic>>.from((snapshot['travellers'] ?? []));
+        final currentAvailable = snapshot['availableSeats'] ??
+            (snapshot['capacity'] ?? 0) - currentSeats;
 
         transaction.update(tripRef, {
           'bookedSeats': currentSeats + totalSelectedSeats,
           'travellers': currentTravellers + travellers,
+          'availableSeats': currentAvailable - totalSelectedSeats, // ✅ decrement
         });
       });
 
+      await _fetchAvailableSeats(); // refresh local value
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ Payment successful, booking confirmed!")),
+        const SnackBar(
+            content: Text("✅ Payment successful, booking confirmed!")),
       );
       Navigator.pop(context);
     } on FirebaseException catch (e) {
@@ -266,49 +287,49 @@ class _TripBookingPageState extends State<TripBookingPage> {
                 const SizedBox(height: 24),
                 // Traveller Names Horizontal Cards
                 if (totalSelectedSeats > 0)
-                   SizedBox(
-              height: 70, // ⬅ reduced height for mobile-friendliness
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: totalSelectedSeats,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Container(
-                      width: 140, // ⬅ narrower for mobile
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.shade200,
-                            blurRadius: 3,
-                            offset: const Offset(1, 2),
+                  SizedBox(
+                    height: 70,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: totalSelectedSeats,
+                      itemBuilder: (context, index) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: Container(
+                            width: 140,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.shade200,
+                                  blurRadius: 3,
+                                  offset: const Offset(1, 2),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              child: TextField(
+                                controller: _nameControllers[index],
+                                decoration: InputDecoration(
+                                  labelText: "Traveller ${index + 1}",
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      vertical: 8, horizontal: 8),
+                                  border: InputBorder.none,
+                                ),
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        child: TextField(
-                          controller: _nameControllers[index],
-                          decoration: InputDecoration(
-                            labelText: "Traveller ${index + 1}",
-                            isDense: true, // ⬅ compact input
-                            contentPadding: const EdgeInsets.symmetric(
-                                vertical: 8, horizontal: 8),
-                            border: InputBorder.none,
-                          ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-            ),
+                  ),
 
-          const SizedBox(height: 20),
+                const SizedBox(height: 20),
                 // Book & Pay Button
                 SizedBox(
                   width: double.infinity,
@@ -333,7 +354,7 @@ class _TripBookingPageState extends State<TripBookingPage> {
             ),
           ),
 
-          // Loading overlay with blur effect
+          // Loading overlay
           if (_loading)
             Container(
               color: Colors.black45,
@@ -423,11 +444,22 @@ class _TripBookingPageState extends State<TripBookingPage> {
       return;
     }
 
+    // ✅ Validate traveller names
+    for (int i = 0; i < totalSelectedSeats; i++) {
+      if (_nameControllers[i].text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Please enter name for Traveller ${i + 1}")),
+        );
+        return;
+      }
+    }
+
+    // Prepare traveller list
     _pendingTravellers = List.generate(totalSelectedSeats, (i) {
       final name = _nameControllers[i].text.trim();
       return {
         'seatNumber': i + 1,
-        'name': name.isEmpty ? 'Guest ${i + 1}' : name,
+        'name': name,
       };
     });
 

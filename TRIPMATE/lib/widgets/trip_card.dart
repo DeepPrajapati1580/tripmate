@@ -19,42 +19,75 @@ class TripCard extends StatelessWidget {
   }) : super(key: key);
 
   Future<void> _deleteTrip(BuildContext context) async {
-    // ✅ Show confirmation dialog first
+    // Show confirmation dialog
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Package'),
+        backgroundColor: Colors.white, // ✅ ensures white background
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16), // ✅ rounded corners
+        ),
+        title: const Text(
+          'Delete Package',
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         content: const Text(
-            'Are you sure you want to delete this package? This will also remove all bookings and feedback.'),
+          'Are you sure you want to delete this package? This will also remove all bookings and feedback.',
+          style: TextStyle(
+            color: Colors.black87,
+            fontSize: 14,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.grey[200], // light grey button
+              foregroundColor: Colors.black87,
+            ),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red, // red delete button
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
 
-    if (confirm != true) return; // ❌ Cancelled, do nothing
+    if (confirm != true) return; // Cancelled
 
-    // ✅ Only delete after confirmation
     try {
+      // Call your service to delete the trip
       await TripService.deleteTrip(trip.id!);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trip deleted successfully')),
-      );
-
-      if (onDelete != null) onDelete!();
+      // ✅ Use the parent context safely after async
+      if (context.mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Trip deleted successfully')),
+          );
+          if (onDelete != null) onDelete!();
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete trip: $e')),
-      );
+      if (context.mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete trip: $e')),
+          );
+        });
+      }
     }
   }
 
