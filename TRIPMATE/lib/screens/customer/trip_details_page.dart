@@ -76,240 +76,247 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
         backgroundColor: Colors.teal,
         elevation: 4,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 📷 Trip Gallery
-            if (trip!.gallery.isNotEmpty)
-              _buildImageGallery("Trip Gallery", trip!.gallery)
-            else if (trip!.imageUrl != null && trip!.imageUrl!.isNotEmpty)
-              ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(bottom: Radius.circular(16)),
-                child: Image.network(
-                  trip!.imageUrl!,
-                  width: double.infinity,
-                  height: 220,
-                  fit: BoxFit.cover,
-                ),
-              ),
-
-            const SizedBox(height: 16),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+      body: Column(
+        children: [
+          // Scrollable content
+          Expanded(
+            child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 🏨 Hotel Section
-                  if (trip!.hotelName != null && trip!.hotelName!.isNotEmpty)
-                    Card(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      elevation: 3,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              trip!.hotelName!,
-                              style: const TextStyle(
-                                  fontSize: 20, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 8),
-                            if (trip!.hotelStars != null)
-                              Row(
-                                children: List.generate(
-                                  trip!.hotelStars!,
-                                  (index) => const Icon(Icons.star,
-                                      color: Colors.amber, size: 20),
-                                ),
-                              ),
-                            const SizedBox(height: 8),
-                            if (trip!.hotelDescription != null)
-                              Text(
-                                trip!.hotelDescription!,
-                                style: const TextStyle(fontSize: 15),
-                              ),
-                            const SizedBox(height: 12),
-                            if (trip!.hotelMainImage != null &&
-                                trip!.hotelMainImage!.isNotEmpty)
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.network(
-                                  trip!.hotelMainImage!,
-                                  width: double.infinity,
-                                  height: 200,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            const SizedBox(height: 12),
-                            if (trip!.hotelGallery.isNotEmpty)
-                              _buildImageGallery(
-                                  "Hotel Gallery", trip!.hotelGallery),
-                          ],
-                        ),
+                  // 📷 Trip Gallery
+                  if (trip!.gallery.isNotEmpty)
+                    _buildImageGallery("Trip Gallery", trip!.gallery)
+                  else if (trip!.imageUrl != null && trip!.imageUrl!.isNotEmpty)
+                    ClipRRect(
+                      borderRadius:
+                          const BorderRadius.vertical(bottom: Radius.circular(16)),
+                      child: Image.network(
+                        trip!.imageUrl!,
+                        width: double.infinity,
+                        height: 220,
+                        fit: BoxFit.cover,
                       ),
                     ),
 
-                  // Trip Info
-                  Text(
-                    trip!.title,
-                    style: const TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  _iconTextRow(Icons.place, trip!.destination),
-                  const SizedBox(height: 8),
-                  _iconTextRow(
-                      Icons.date_range,
-                      "${trip!.startDate.toString().split(' ').first} - ${trip!.endDate.toString().split(' ').first}",
-                      color: Colors.grey.shade700),
-                  const SizedBox(height: 8),
-                  _iconTextRow(Icons.money,
-                      "₹${currencyFormatter.format(trip!.price)} per seat",
-                      fontWeight: FontWeight.w600),
-                  const SizedBox(height: 8),
-                  _iconTextRow(
-                      Icons.event_seat, "Available Seats: $availableSeats"),
                   const SizedBox(height: 16),
 
-                  // 📝 Itinerary
-                  if (trip!.itinerary.isNotEmpty)
-                    _buildInfoCard(
-                      title: "Itinerary",
-                      children: trip!.itinerary
-                          .map(
-                            (day) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 🏨 Hotel Section
+                        if (trip!.hotelName != null && trip!.hotelName!.isNotEmpty)
+                          Card(
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16)),
+                            elevation: 3,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(Icons.today,
-                                      color: Colors.teal, size: 20),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      "Day ${day['day']}: ${day['description']}",
+                                  Text(
+                                    trip!.hotelName!,
+                                    style: const TextStyle(
+                                        fontSize: 20, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  if (trip!.hotelStars != null)
+                                    Row(
+                                      children: List.generate(
+                                        trip!.hotelStars!,
+                                        (index) => const Icon(Icons.star,
+                                            color: Colors.amber, size: 20),
+                                      ),
+                                    ),
+                                  const SizedBox(height: 8),
+                                  if (trip!.hotelDescription != null)
+                                    Text(
+                                      trip!.hotelDescription!,
                                       style: const TextStyle(fontSize: 15),
                                     ),
-                                  ),
+                                  const SizedBox(height: 12),
+                                  if (trip!.hotelMainImage != null &&
+                                      trip!.hotelMainImage!.isNotEmpty)
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        trip!.hotelMainImage!,
+                                        width: double.infinity,
+                                        height: 200,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  const SizedBox(height: 12),
+                                  if (trip!.hotelGallery.isNotEmpty)
+                                    _buildImageGallery(
+                                        "Hotel Gallery", trip!.hotelGallery),
                                 ],
                               ),
                             ),
-                          )
-                          .toList(),
-                    ),
+                          ),
 
-                  // 🍽 Meals
-                  if (trip!.meals.isNotEmpty)
-                    _buildInfoCard(
-                      title: "Meals",
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.restaurant_menu,
-                                color: Colors.teal, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                                child: Text(trip!.meals.join(", "),
-                                    style: const TextStyle(fontSize: 15))),
-                          ],
+                        // Trip Info
+                        Text(
+                          trip!.title,
+                          style: const TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.bold),
                         ),
-                      ],
-                    ),
+                        const SizedBox(height: 12),
+                        _iconTextRow(Icons.place, trip!.destination),
+                        const SizedBox(height: 8),
+                        _iconTextRow(
+                            Icons.date_range,
+                            "${trip!.startDate.toString().split(' ').first} - ${trip!.endDate.toString().split(' ').first}",
+                            color: Colors.grey.shade700),
+                        const SizedBox(height: 8),
+                        _iconTextRow(Icons.money,
+                            "₹${currencyFormatter.format(trip!.price)} per seat",
+                            fontWeight: FontWeight.w600),
+                        const SizedBox(height: 8),
+                        _iconTextRow(Icons.event_seat, "Available Seats: $availableSeats"),
+                        const SizedBox(height: 16),
 
-                  // 🎯 Activities
-                  if (trip!.activities.isNotEmpty)
-                    _buildInfoCard(
-                      title: "Activities",
-                      children: trip!.activities
-                          .map(
-                            (act) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
+                        // 📝 Itinerary
+                        if (trip!.itinerary.isNotEmpty)
+                          _buildInfoCard(
+                            title: "Itinerary",
+                            children: trip!.itinerary
+                                .map(
+                                  (day) => Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 6),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Icon(Icons.today,
+                                            color: Colors.teal, size: 20),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            "Day ${day['day']}: ${day['description']}",
+                                            style: const TextStyle(fontSize: 15),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+
+                        // 🍽 Meals
+                        if (trip!.meals.isNotEmpty)
+                          _buildInfoCard(
+                            title: "Meals",
+                            children: [
+                              Row(
                                 children: [
-                                  const Icon(Icons.check_circle,
+                                  const Icon(Icons.restaurant_menu,
                                       color: Colors.teal, size: 20),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(act,
-                                        style: const TextStyle(fontSize: 15)),
-                                  ),
+                                      child: Text(trip!.meals.join(", "),
+                                          style: const TextStyle(fontSize: 15))),
                                 ],
                               ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-
-                  const SizedBox(height: 24),
-
-                  // ✅ Feedback Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.feedback, color: Colors.teal),
-                      label: const Text("Give Feedback",
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: Colors.teal, width: 1.5),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => TripFeedbackPage(tripId: trip!.id),
+                            ],
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
 
-                  // Book Now Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: availableSeats <= 0
-                          ? null
-                          : () {
+                        // 🎯 Activities
+                        if (trip!.activities.isNotEmpty)
+                          _buildInfoCard(
+                            title: "Activities",
+                            children: trip!.activities
+                                .map(
+                                  (act) => Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.check_circle,
+                                            color: Colors.teal, size: 20),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(act,
+                                              style:
+                                                  const TextStyle(fontSize: 15)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+
+                        const SizedBox(height: 16),
+
+                        // ✅ Feedback Button
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.feedback, color: Colors.teal),
+                            label: const Text("Give Feedback",
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: const BorderSide(color: Colors.teal, width: 1.5),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => TripBookingPage(trip: trip!),
+                                  builder: (_) =>
+                                      TripFeedbackPage(tripId: trip!.id),
                                 ),
                               );
                             },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        backgroundColor: Colors.teal,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16)),
-                        elevation: 6,
-                      ),
-                      child: const Text(
-                        "Book Now",
-                        style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold),
-                      ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 32),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+
+          // 📌 Book Now button pinned at bottom
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: Colors.white,
+            child: ElevatedButton(
+              onPressed: availableSeats <= 0
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TripBookingPage(trip: trip!),
+                        ),
+                      );
+                    },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                backgroundColor: Colors.teal,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                elevation: 6,
+              ),
+              child: const Text(
+                "Book Now",
+                style: TextStyle(
+                    fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -330,8 +337,7 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
     );
   }
 
-  Widget _buildInfoCard(
-      {required String title, required List<Widget> children}) {
+  Widget _buildInfoCard({required String title, required List<Widget> children}) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
