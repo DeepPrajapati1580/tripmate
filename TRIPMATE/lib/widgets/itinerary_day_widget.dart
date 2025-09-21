@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 class ItineraryDayField extends StatelessWidget {
   final TextEditingController dayCtrl;
-  final TextEditingController descCtrl;
   final TextEditingController mealsCtrl;
   final TextEditingController activitiesCtrl;
   final VoidCallback onRemove;
@@ -10,7 +9,6 @@ class ItineraryDayField extends StatelessWidget {
   const ItineraryDayField({
     super.key,
     required this.dayCtrl,
-    required this.descCtrl,
     required this.mealsCtrl,
     required this.activitiesCtrl,
     required this.onRemove,
@@ -53,11 +51,6 @@ class ItineraryDayField extends StatelessWidget {
                   icon: const Icon(Icons.delete, color: Colors.red),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: descCtrl,
-              decoration: _inputDecoration("Description"),
             ),
             const SizedBox(height: 8),
             TextFormField(

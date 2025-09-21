@@ -191,13 +191,27 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
                                     child: Row(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Icon(Icons.today,
-                                            color: Colors.teal, size: 20),
+                                        const Icon(Icons.today, color: Colors.teal, size: 20),
                                         const SizedBox(width: 8),
                                         Expanded(
-                                          child: Text(
-                                            "Day ${day['day']}: ${day['description']}",
-                                            style: const TextStyle(fontSize: 15),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                "Day ${day['day']}",
+                                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                "Meals: ${day['meals']}",
+                                                style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                "Activities: ${day['activities']}",
+                                                style: const TextStyle(fontSize: 14, color: Colors.black54),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],

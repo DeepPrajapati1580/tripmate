@@ -36,7 +36,7 @@ class TripService {
             (snap) => snap.docs.map((doc) => TripPackage.fromDoc(doc)).toList());
   }
 
-  //// ✅ Create new trip
+  /// ✅ Create new trip
   static Future<void> create({
     required String title,
     required String description,
@@ -58,8 +58,20 @@ class TripService {
     List<String>? meals,
     List<String>? activities,
     bool airportPickup = false,
-    List<Map<String, dynamic>>? itinerary,
+    List<Map<String, dynamic>>? itinerary, // <-- form itinerary
   }) async {
+    // 🔹 normalize itinerary
+    final List<Map<String, dynamic>> finalItinerary =
+    (itinerary ?? []).asMap().entries.map((entry) {
+      final idx = entry.key;
+      final e = entry.value;
+      return {
+        "day": e["day"] ?? idx + 1,
+        "meals": List<String>.from(e["meals"] ?? []),
+        "activities": List<String>.from(e["activities"] ?? []),
+      };
+    }).toList();
+
     await _col.add({
       // core trip info
       'title': title,
@@ -91,15 +103,19 @@ class TripService {
       'meals': meals ?? [],
       'activities': activities ?? [],
       'airportPickup': airportPickup,
-      'itinerary': itinerary ?? [],
+
+      // 🔹 store normalized itinerary plan
+      'itinerary': finalItinerary,
 
       // travellers
       'travellers': <Map<String, dynamic>>[],
 
       // feedback
       'avgRating': 0.0,
+      'feedbackCount': 0,
     });
   }
+
 
 
   /// ✅ Update existing trip

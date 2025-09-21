@@ -48,6 +48,8 @@ class _TripEditPageState extends State<TripEditPage> {
   List<String> _meals = [];
   List<String> _activities = [];
   bool _airportPickup = false;
+
+  // itinerary now stores controllers
   List<Map<String, dynamic>> _itinerary = [];
 
   bool _loading = true;
@@ -86,13 +88,24 @@ class _TripEditPageState extends State<TripEditPage> {
       _meals = List.from(trip.meals);
       _activities = List.from(trip.activities);
       _airportPickup = trip.airportPickup;
-      _itinerary = List.from(trip.itinerary);
+
+      // initialize itinerary with controllers
+      _itinerary = trip.itinerary.map((day) {
+        return {
+          'dayCtrl': TextEditingController(text: day['day']?.toString() ?? ''),
+          'mealsCtrl': TextEditingController(
+              text: (day['meals'] as List<dynamic>?)?.join(", ") ?? ''),
+          'activitiesCtrl': TextEditingController(
+              text: (day['activities'] as List<dynamic>?)?.join(", ") ?? ''),
+        };
+      }).toList();
 
       _loading = false;
     });
   }
 
-  Future<void> _pickImage({bool isHotel = false, bool isGallery = false, bool isMain = false}) async {
+  Future<void> _pickImage(
+      {bool isHotel = false, bool isGallery = false, bool isMain = false}) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
@@ -100,7 +113,8 @@ class _TripEditPageState extends State<TripEditPage> {
     Map<String, String> upload;
     if (kIsWeb) {
       Uint8List bytes = await picked.readAsBytes();
-      upload = await CloudinaryUploader.uploadImage(fileBytes: bytes, fileName: picked.name);
+      upload = await CloudinaryUploader.uploadImage(
+          fileBytes: bytes, fileName: picked.name);
     } else {
       upload = await CloudinaryUploader.uploadImage(filePath: picked.path);
     }
@@ -123,19 +137,26 @@ class _TripEditPageState extends State<TripEditPage> {
   Future<void> _updateTrip() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Update itinerary from controllers
-    for (int i = 0; i < _itinerary.length; i++) {
-      final day = _itinerary[i];
-      final dayCtrl = TextEditingController(text: day['day']?.toString() ?? '');
-      final descCtrl = TextEditingController(text: day['plan'] ?? '');
-      final mealsCtrl = TextEditingController(text: (day['meals'] as List<dynamic>?)?.join(", ") ?? '');
-      final activitiesCtrl = TextEditingController(text: (day['activities'] as List<dynamic>?)?.join(", ") ?? '');
+    // extract itinerary values
+    final itineraryData = _itinerary.map((day) {
+      final dayCtrl = day['dayCtrl'] as TextEditingController;
+      final mealsCtrl = day['mealsCtrl'] as TextEditingController;
+      final activitiesCtrl = day['activitiesCtrl'] as TextEditingController;
 
-      day['day'] = int.tryParse(dayCtrl.text) ?? (i + 1);
-      day['plan'] = descCtrl.text;
-      day['meals'] = mealsCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-      day['activities'] = activitiesCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-    }
+      return {
+        'day': int.tryParse(dayCtrl.text) ?? 1,
+        'meals': mealsCtrl.text
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList(),
+        'activities': activitiesCtrl.text
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList(),
+      };
+    }).toList();
 
     await TripService.update(
       tripId: widget.tripId,
@@ -151,18 +172,20 @@ class _TripEditPageState extends State<TripEditPage> {
       imagePublicId: _imagePublicId,
       gallery: _gallery,
       hotelName: _hotelNameCtrl.text.isNotEmpty ? _hotelNameCtrl.text : null,
-      hotelDescription: _hotelDescCtrl.text.isNotEmpty ? _hotelDescCtrl.text : null,
+      hotelDescription:
+      _hotelDescCtrl.text.isNotEmpty ? _hotelDescCtrl.text : null,
       hotelStars: int.tryParse(_hotelStarsCtrl.text),
       hotelMainImage: _hotelMainImage,
       hotelGallery: _hotelGallery,
       meals: _meals,
       activities: _activities,
       airportPickup: _airportPickup,
-      itinerary: _itinerary,
+      itinerary: itineraryData,
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Trip updated successfully")));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Trip updated successfully")));
       Navigator.pop(context);
     }
   }
@@ -177,7 +200,8 @@ class _TripEditPageState extends State<TripEditPage> {
     );
   }
 
-  Widget _chipEditor(String label, List<String> items, void Function(List<String>) onChanged) {
+  Widget _chipEditor(
+      String label, List<String> items, void Function(List<String>) onChanged) {
     final ctrl = TextEditingController();
     return Card(
       elevation: 2,
@@ -188,21 +212,28 @@ class _TripEditPageState extends State<TripEditPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(label,
+                style:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 6),
             Wrap(
               spacing: 6,
               children: items
                   .map((e) => Chip(
                 label: Text(e),
-                onDeleted: () => onChanged(List.from(items)..remove(e)),
+                onDeleted: () =>
+                    onChanged(List.from(items)..remove(e)),
               ))
                   .toList(),
             ),
             const SizedBox(height: 6),
             Row(
               children: [
-                Expanded(child: TextField(controller: ctrl, decoration: const InputDecoration(hintText: "Add item"))),
+                Expanded(
+                    child: TextField(
+                        controller: ctrl,
+                        decoration:
+                        const InputDecoration(hintText: "Add item"))),
                 IconButton(
                   icon: const Icon(Icons.add, color: Colors.teal),
                   onPressed: () {
@@ -230,22 +261,17 @@ class _TripEditPageState extends State<TripEditPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Itinerary", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text("Itinerary",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 8),
             ..._itinerary.asMap().entries.map((e) {
               final index = e.key;
               final day = _itinerary[index];
 
-              final dayCtrl = TextEditingController(text: day['day']?.toString() ?? '');
-              final descCtrl = TextEditingController(text: day['plan'] ?? '');
-              final mealsCtrl = TextEditingController(text: (day['meals'] as List<dynamic>?)?.join(", ") ?? '');
-              final activitiesCtrl = TextEditingController(text: (day['activities'] as List<dynamic>?)?.join(", ") ?? '');
-
               return ItineraryDayField(
-                dayCtrl: dayCtrl,
-                descCtrl: descCtrl,
-                mealsCtrl: mealsCtrl,
-                activitiesCtrl: activitiesCtrl,
+                dayCtrl: day['dayCtrl'],
+                mealsCtrl: day['mealsCtrl'],
+                activitiesCtrl: day['activitiesCtrl'],
                 onRemove: () => setState(() => _itinerary.removeAt(index)),
               );
             }),
@@ -255,16 +281,17 @@ class _TripEditPageState extends State<TripEditPage> {
                 onPressed: () {
                   setState(() {
                     _itinerary.add({
-                      'day': _itinerary.length + 1,
-                      'plan': '',
-                      'meals': [],
-                      'activities': [],
+                      'dayCtrl': TextEditingController(
+                          text: (_itinerary.length + 1).toString()),
+                      'mealsCtrl': TextEditingController(),
+                      'activitiesCtrl': TextEditingController(),
                     });
                   });
                 },
                 icon: const Icon(Icons.add),
                 label: const Text("Add Day"),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                style:
+                ElevatedButton.styleFrom(backgroundColor: Colors.teal),
               ),
             ),
           ],
@@ -273,7 +300,9 @@ class _TripEditPageState extends State<TripEditPage> {
     );
   }
 
-  Widget _imageGalleryEditor(String label, List<String> images, bool isHotel, {bool isMain = false}) {
+  Widget _imageGalleryEditor(
+      String label, List<String> images, bool isHotel,
+      {bool isMain = false}) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -283,14 +312,20 @@ class _TripEditPageState extends State<TripEditPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(label,
+                style:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 6),
             if (isMain && images.isNotEmpty)
               GestureDetector(
-                onTap: () => _pickImage(isHotel: isHotel, isMain: true),
+                onTap: () =>
+                    _pickImage(isHotel: isHotel, isMain: true),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(images.first, width: double.infinity, height: 200, fit: BoxFit.cover),
+                  child: Image.network(images.first,
+                      width: double.infinity,
+                      height: 200,
+                      fit: BoxFit.cover),
                 ),
               ),
             const SizedBox(height: 6),
@@ -300,10 +335,17 @@ class _TripEditPageState extends State<TripEditPage> {
                   .map((img) => Stack(
                 alignment: Alignment.topRight,
                 children: [
-                  ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(img, width: 100, height: 100, fit: BoxFit.cover)),
+                  ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(img,
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.cover)),
                   GestureDetector(
-                    onTap: () => setState(() => images.remove(img)),
-                    child: const Icon(Icons.close, color: Colors.red),
+                    onTap: () =>
+                        setState(() => images.remove(img)),
+                    child: const Icon(Icons.close,
+                        color: Colors.red),
                   )
                 ],
               ))
@@ -313,10 +355,12 @@ class _TripEditPageState extends State<TripEditPage> {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: ElevatedButton.icon(
-                  onPressed: () => _pickImage(isHotel: isHotel, isGallery: true),
+                  onPressed: () =>
+                      _pickImage(isHotel: isHotel, isGallery: true),
                   icon: const Icon(Icons.add_a_photo),
                   label: const Text("Add Image"),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal),
                 ),
               ),
           ],
@@ -327,35 +371,60 @@ class _TripEditPageState extends State<TripEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_loading) {
+      return const Scaffold(
+          body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Edit Trip"), backgroundColor: Colors.teal, elevation: 4),
+      appBar: AppBar(
+          title: const Text("Edit Trip"),
+          backgroundColor: Colors.teal,
+          elevation: 4),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          child:
+          Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             // Basic Trip Info
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               margin: const EdgeInsets.symmetric(vertical: 6),
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   children: [
-                    TextFormField(controller: _titleCtrl, decoration: _inputDecoration("Trip Title"), validator: (v) => v!.isEmpty ? "Enter title" : null),
+                    TextFormField(
+                        controller: _titleCtrl,
+                        decoration: _inputDecoration("Trip Title"),
+                        validator: (v) =>
+                        v!.isEmpty ? "Enter title" : null),
                     const SizedBox(height: 12),
-                    TextFormField(controller: _descCtrl, decoration: _inputDecoration("Description"), maxLines: 3),
+                    TextFormField(
+                        controller: _descCtrl,
+                        decoration: _inputDecoration("Description"),
+                        maxLines: 3),
                     const SizedBox(height: 12),
-                    TextFormField(controller: _sourceCtrl, decoration: _inputDecoration("Source City")),
+                    TextFormField(
+                        controller: _sourceCtrl,
+                        decoration: _inputDecoration("Source City")),
                     const SizedBox(height: 12),
-                    TextFormField(controller: _destCtrl, decoration: _inputDecoration("Destination")),
+                    TextFormField(
+                        controller: _destCtrl,
+                        decoration: _inputDecoration("Destination")),
                     const SizedBox(height: 12),
-                    TextFormField(controller: _priceCtrl, decoration: _inputDecoration("Price"), keyboardType: TextInputType.number),
+                    TextFormField(
+                        controller: _priceCtrl,
+                        decoration: _inputDecoration("Price"),
+                        keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
-                    TextFormField(controller: _capacityCtrl, decoration: _inputDecoration("Capacity"), keyboardType: TextInputType.number),
+                    TextFormField(
+                        controller: _capacityCtrl,
+                        decoration: _inputDecoration("Capacity"),
+                        keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
 
                     // Dates
@@ -364,20 +433,49 @@ class _TripEditPageState extends State<TripEditPage> {
                         Expanded(
                           child: GestureDetector(
                             onTap: () async {
-                              final picked = await showDatePicker(context: context, initialDate: _startDate ?? DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(2100));
-                              if (picked != null) setState(() => _startDate = picked);
+                              final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate:
+                                  _startDate ?? DateTime.now(),
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2100));
+                              if (picked != null) {
+                                setState(() => _startDate = picked);
+                              }
                             },
-                            child: AbsorbPointer(child: TextFormField(controller: TextEditingController(text: _startDate != null ? df.format(_startDate!) : ""), decoration: _inputDecoration("Start Date"))),
+                            child: AbsorbPointer(
+                                child: TextFormField(
+                                    controller: TextEditingController(
+                                        text: _startDate != null
+                                            ? df.format(_startDate!)
+                                            : ""),
+                                    decoration:
+                                    _inputDecoration("Start Date"))),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: GestureDetector(
                             onTap: () async {
-                              final picked = await showDatePicker(context: context, initialDate: _endDate ?? (_startDate ?? DateTime.now()), firstDate: _startDate ?? DateTime.now(), lastDate: DateTime(2100));
-                              if (picked != null) setState(() => _endDate = picked);
+                              final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: _endDate ??
+                                      (_startDate ?? DateTime.now()),
+                                  firstDate:
+                                  _startDate ?? DateTime.now(),
+                                  lastDate: DateTime(2100));
+                              if (picked != null) {
+                                setState(() => _endDate = picked);
+                              }
                             },
-                            child: AbsorbPointer(child: TextFormField(controller: TextEditingController(text: _endDate != null ? df.format(_endDate!) : ""), decoration: _inputDecoration("End Date"))),
+                            child: AbsorbPointer(
+                                child: TextFormField(
+                                    controller: TextEditingController(
+                                        text: _endDate != null
+                                            ? df.format(_endDate!)
+                                            : ""),
+                                    decoration:
+                                    _inputDecoration("End Date"))),
                           ),
                         ),
                       ],
@@ -390,9 +488,17 @@ class _TripEditPageState extends State<TripEditPage> {
             const SizedBox(height: 12),
 
             // Images
-            _imageGalleryEditor("Trip Main Image", _imageUrl != null ? [_imageUrl!] : [], false, isMain: true),
+            _imageGalleryEditor(
+                "Trip Main Image",
+                _imageUrl != null ? [_imageUrl!] : [],
+                false,
+                isMain: true),
             _imageGalleryEditor("Trip Gallery", _gallery, false),
-            _imageGalleryEditor("Hotel Main Image", _hotelMainImage != null ? [_hotelMainImage!] : [], true, isMain: true),
+            _imageGalleryEditor(
+                "Hotel Main Image",
+                _hotelMainImage != null ? [_hotelMainImage!] : [],
+                true,
+                isMain: true),
             _imageGalleryEditor("Hotel Gallery", _hotelGallery, true),
 
             const SizedBox(height: 12),
@@ -400,17 +506,26 @@ class _TripEditPageState extends State<TripEditPage> {
             // Hotel Info
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               margin: const EdgeInsets.symmetric(vertical: 6),
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   children: [
-                    TextFormField(controller: _hotelNameCtrl, decoration: _inputDecoration("Hotel Name")),
+                    TextFormField(
+                        controller: _hotelNameCtrl,
+                        decoration: _inputDecoration("Hotel Name")),
                     const SizedBox(height: 12),
-                    TextFormField(controller: _hotelDescCtrl, decoration: _inputDecoration("Hotel Description"), maxLines: 2),
+                    TextFormField(
+                        controller: _hotelDescCtrl,
+                        decoration: _inputDecoration("Hotel Description"),
+                        maxLines: 2),
                     const SizedBox(height: 12),
-                    TextFormField(controller: _hotelStarsCtrl, decoration: _inputDecoration("Hotel Stars"), keyboardType: TextInputType.number),
+                    TextFormField(
+                        controller: _hotelStarsCtrl,
+                        decoration: _inputDecoration("Hotel Stars"),
+                        keyboardType: TextInputType.number),
                   ],
                 ),
               ),
@@ -418,12 +533,14 @@ class _TripEditPageState extends State<TripEditPage> {
 
             // Meals & Activities
             _chipEditor("Meals", _meals, (v) => setState(() => _meals = v)),
-            _chipEditor("Activities", _activities, (v) => setState(() => _activities = v)),
+            _chipEditor("Activities", _activities,
+                    (v) => setState(() => _activities = v)),
 
             // Airport pickup
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               margin: const EdgeInsets.symmetric(vertical: 6),
               child: SwitchListTile(
                 value: _airportPickup,
@@ -440,9 +557,13 @@ class _TripEditPageState extends State<TripEditPage> {
               onPressed: _updateTrip,
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 14),
-                child: Text("Save Changes", style: TextStyle(fontSize: 16)),
+                child:
+                Text("Save Changes", style: TextStyle(fontSize: 16)),
               ),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12))),
             ),
             const SizedBox(height: 32),
           ]),
