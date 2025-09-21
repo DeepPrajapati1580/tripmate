@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../models/trip_package.dart';
 import '../../models/booking.dart';
 import '../../services/booking_service.dart';
-import '../../services/auth_service.dart'; // Assuming you have a UserService to get user details
+import '../../services/auth_service.dart';
+import '../trip_feedback_page.dart'; // ✅ import feedback page
+import '../../theme.dart'; // ✅ use theme colors
 
 class TripBookingsPage extends StatelessWidget {
   final TripPackage trip;
@@ -14,7 +16,7 @@ class TripBookingsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text("Bookings for ${trip.title}"),
-        backgroundColor: Colors.teal,
+        backgroundColor: AppColors.primary,
       ),
       body: StreamBuilder<List<Booking>>(
         stream: BookingService.streamBookingsForTrip(trip.id),
@@ -60,51 +62,101 @@ class TripBookingsPage extends StatelessWidget {
               }
 
               return FutureBuilder<String>(
-                future: AuthService.getUsername(userId), // Get user name from your users collection
+                future: AuthService.getUsername(userId), // ✅ get username
                 builder: (context, userSnap) {
                   final username = userSnap.data ?? userId;
 
                   return Card(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    elevation: 4,
+                    elevation: 5,
                     margin: const EdgeInsets.symmetric(vertical: 8),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            "Booking by: $username",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                          // ---------- User Info ----------
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: AppColors.primaryLight,
+                                child: Text(
+                                  username.isNotEmpty
+                                      ? username[0].toUpperCase()
+                                      : "U",
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  "Booking by: $username",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 10),
+
+                          // ---------- Booking Info ----------
                           Text("Total Seats: $totalSeats"),
                           Text("Total Amount: ₹$totalAmount"),
                           Text(
                             "Status: $status",
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: status == 'PAID' ? Colors.green : Colors.orange,
+                              color: status == 'PAID'
+                                  ? Colors.green
+                                  : Colors.orange,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
+
+                          // ---------- Travellers ----------
                           if (allTravellers.isNotEmpty) ...[
                             const Text(
                               "Travellers:",
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 4),
-                            ...allTravellers.map((t) => Text(" - ${t['name']} ")).toList(),
+                            ...allTravellers
+                                .map((t) => Text(" - ${t['name']} "))
+                                .toList(),
                           ],
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
+
+                          // ---------- Latest Booking ----------
                           Text(
                             "Latest Booking: ${userBookingsList.last.createdAt.toLocal()}".split(".").first,
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
+                          ),
+
+                          const Divider(height: 20, thickness: 1),
+
+                          // ---------- View Feedback Button ----------
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.rate_review, size: 18),
+                              label: const Text("View Feedback"),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        TripFeedbackPage(tripId: trip.id),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ],
                       ),

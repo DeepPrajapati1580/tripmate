@@ -273,8 +273,8 @@ class TripService {
     final bookingsQuery = _bookings.where('tripPackageId', isEqualTo: tripId);
 
     final feedbacksQuery = FirebaseFirestore.instance
-        .collection('feedbacks') // adjust collection name if different
-        .where('tripPackageId', isEqualTo: tripId);
+        .collection('feedback')
+        .where('tripId', isEqualTo: tripId);
 
     // Firestore batch for atomic operations
     final batch = FirebaseFirestore.instance.batch();

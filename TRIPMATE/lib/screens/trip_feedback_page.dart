@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/feedback_service.dart';
+import '../../services/auth_service.dart'; // ✅ added AuthService
 import '../models/feedback_model.dart';
 
 class TripFeedbackPage extends StatefulWidget {
@@ -19,6 +20,23 @@ class _TripFeedbackPageState extends State<TripFeedbackPage> {
   final _feedbackController = TextEditingController();
   int _rating = 0;
   bool _loading = false;
+  String _userRole = 'customer'; // default role
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserRole();
+  }
+
+  Future<void> _loadUserRole() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final profile = await AuthService.getProfile(user.uid);
+    if (profile != null) {
+      setState(() => _userRole = profile.role); // 'customer' | 'travel_agent' | 'admin'
+    }
+  }
 
   @override
   void dispose() {
@@ -123,7 +141,13 @@ class _TripFeedbackPageState extends State<TripFeedbackPage> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final feedbacks = snapshot.data ?? [];
+          List<FeedbackModel> feedbacks = snapshot.data ?? [];
+
+          // ---------- Role-based filtering ----------
+          if (_userRole == 'travel_agent') {
+            // Agent sees only feedback for this trip
+            feedbacks = feedbacks.where((fb) => fb.tripId == widget.tripId).toList();
+          }
 
           // Find feedback by current user
           final userFeedback = feedbacks.firstWhere(
@@ -132,16 +156,15 @@ class _TripFeedbackPageState extends State<TripFeedbackPage> {
               id: '',
               tripId: '',
               userId: '',
-              username: null, // ✅ username can be null
+              username: null,
               rating: 0,
               comment: '',
               createdAt: DateTime.now(),
             ),
           );
 
-// Show form only if the user has not submitted feedback
-          final showForm = userFeedback.userId.isEmpty;
-
+          // Show form only if the user is customer and has not submitted feedback
+          final showForm = _userRole == 'customer' && userFeedback.userId.isEmpty;
 
           return Column(
             children: [

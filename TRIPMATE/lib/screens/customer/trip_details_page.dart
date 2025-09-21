@@ -1,8 +1,10 @@
+// lib/screens/customer/trip_details_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../models/trip_package.dart';
 import 'trip_booking_page.dart';
+import '../trip_feedback_page.dart'; // ✅ Import Feedback Page
 
 class TripDetailsPage extends StatefulWidget {
   final String tripId;
@@ -78,7 +80,7 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 📷 Trip Gallery (always at the top)
+            // 📷 Trip Gallery
             if (trip!.gallery.isNotEmpty)
               _buildImageGallery("Trip Gallery", trip!.gallery)
             else if (trip!.imageUrl != null && trip!.imageUrl!.isNotEmpty)
@@ -100,7 +102,7 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 🏨 Hotel Section as a Card
+                  // 🏨 Hotel Section
                   if (trip!.hotelName != null && trip!.hotelName!.isNotEmpty)
                     Card(
                       shape: RoundedRectangleBorder(
@@ -246,6 +248,32 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
 
                   const SizedBox(height: 24),
 
+                  // ✅ Feedback Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.feedback, color: Colors.teal),
+                      label: const Text("Give Feedback",
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Colors.teal, width: 1.5),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TripFeedbackPage(tripId: trip!.id),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Book Now Button
                   SizedBox(
                     width: double.infinity,
@@ -286,7 +314,6 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
     );
   }
 
-  /// 🔹 Small helper to show icon + text row
   Widget _iconTextRow(IconData icon, String text,
       {Color color = Colors.teal, FontWeight fontWeight = FontWeight.normal}) {
     return Row(
@@ -303,7 +330,6 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
     );
   }
 
-  /// 🔹 Card UI with title + children
   Widget _buildInfoCard(
       {required String title, required List<Widget> children}) {
     return Card(
@@ -326,7 +352,6 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
     );
   }
 
-  /// 🔹 Gallery Section
   Widget _buildImageGallery(String title, List<String> images) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

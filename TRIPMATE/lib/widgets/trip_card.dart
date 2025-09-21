@@ -19,6 +19,30 @@ class TripCard extends StatelessWidget {
   }) : super(key: key);
 
   Future<void> _deleteTrip(BuildContext context) async {
+    // ✅ Show confirmation dialog first
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Package'),
+        content: const Text(
+            'Are you sure you want to delete this package? This will also remove all bookings and feedback.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return; // ❌ Cancelled, do nothing
+
+    // ✅ Only delete after confirmation
     try {
       await TripService.deleteTrip(trip.id!);
 
@@ -66,41 +90,42 @@ class TripCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
+                      const BorderRadius.vertical(top: Radius.circular(16)),
                   child: (trip.imageUrl ?? '').isNotEmpty
                       ? Image.network(
-                    trip.imageUrl!,
-                    height: 180,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 180,
-                        color: Colors.grey[300],
-                        child: const Center(
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 180,
-                        color: Colors.grey[300],
-                        child: const Icon(
-                          Icons.broken_image,
-                          size: 60,
-                          color: Colors.grey,
-                        ),
-                      );
-                    },
-                  )
+                          trip.imageUrl!,
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          loadingBuilder:
+                              (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              height: 180,
+                              color: Colors.grey[300],
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              height: 180,
+                              color: Colors.grey[300],
+                              child: const Icon(
+                                Icons.broken_image,
+                                size: 60,
+                                color: Colors.grey,
+                              ),
+                            );
+                          },
+                        )
                       : Container(
-                    height: 180,
-                    color: Colors.grey[300],
-                    child:
-                    const Icon(Icons.image, size: 60, color: Colors.grey),
-                  ),
+                          height: 180,
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.image,
+                              size: 60, color: Colors.grey),
+                        ),
                 ),
 
                 // Source ➝ Destination & Dates overlay
@@ -109,7 +134,7 @@ class TripCard extends StatelessWidget {
                   left: 12,
                   child: Container(
                     padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(8),
@@ -144,7 +169,7 @@ class TripCard extends StatelessWidget {
                   right: 12,
                   child: Container(
                     padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.teal,
                       borderRadius: BorderRadius.circular(8),
@@ -204,7 +229,8 @@ class TripCard extends StatelessWidget {
                       ],
                       const SizedBox(width: 8),
                       if (trip.avgRating != null) ...[
-                        const Icon(Icons.reviews, size: 14, color: Colors.deepOrange),
+                        const Icon(Icons.reviews,
+                            size: 14, color: Colors.deepOrange),
                         const SizedBox(width: 2),
                         Text(
                           trip.avgRating!.toStringAsFixed(1),
@@ -242,21 +268,21 @@ class TripCard extends StatelessWidget {
                       children: trip.activities!
                           .map(
                             (a) => Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            a,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.teal,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                a,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.teal,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      )
+                          )
                           .toList(),
                     ),
 

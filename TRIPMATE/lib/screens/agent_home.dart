@@ -30,13 +30,11 @@ class _AgentHomeState extends State<AgentHome> {
     }
 
     // Pages for bottom navigation
-    // Pages for bottom navigation
     final pages = [
       _buildAllTripsPage(),          // All trips created by agent
       const AllTripsPage(),          // Reuse your existing page that shows all booked trips
       AccountPage(),
     ];
-
 
     return Scaffold(
       appBar: AppBar(
@@ -140,11 +138,12 @@ class _AgentHomeState extends State<AgentHome> {
                 ),
               ),
               onDelete: () async {
+                // ✅ Show confirmation dialog first
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: const Text('Delete Package'),
-                    content: const Text('Delete this package?'),
+                    content: const Text('Are you sure you want to delete this package? This will also remove all bookings and feedback.'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
@@ -160,12 +159,21 @@ class _AgentHomeState extends State<AgentHome> {
                   ),
                 );
 
+                // ✅ Only delete after confirmation
                 if (confirm == true) {
-                  await TripService.cancelBooking(trip.id);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Package deleted')),
-                    );
+                  try {
+                    await TripService.deleteTrip(trip.id); // full deletion
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Package deleted successfully')),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to delete package: $e')),
+                      );
+                    }
                   }
                 }
               },
