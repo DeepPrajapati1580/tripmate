@@ -36,7 +36,7 @@ class TripService {
             (snap) => snap.docs.map((doc) => TripPackage.fromDoc(doc)).toList());
   }
 
-  /// ✅ Create new trip
+  //// ✅ Create new trip
   static Future<void> create({
     required String title,
     required String description,
@@ -61,6 +61,7 @@ class TripService {
     List<Map<String, dynamic>>? itinerary,
   }) async {
     await _col.add({
+      // core trip info
       'title': title,
       'description': description,
       'source': source,
@@ -70,23 +71,36 @@ class TripService {
       'price': price,
       'capacity': capacity,
       'bookedSeats': 0,
+      'availableSeats': capacity, // ✅ for easier queries
       'createdBy': createdBy,
       'createdAt': FieldValue.serverTimestamp(),
+
+      // images
       'imageUrl': imageUrl,
       'imagePublicId': imagePublicId,
       'gallery': gallery ?? [],
+
+      // hotel info
       'hotelName': hotelName,
       'hotelDescription': hotelDescription,
       'hotelMainImage': hotelMainImage,
       'hotelGallery': hotelGallery ?? [],
       'hotelStars': hotelStars,
+
+      // extras
       'meals': meals ?? [],
       'activities': activities ?? [],
       'airportPickup': airportPickup,
       'itinerary': itinerary ?? [],
+
+      // travellers
       'travellers': <Map<String, dynamic>>[],
+
+      // feedback
+      'avgRating': 0.0,
     });
   }
+
 
   /// ✅ Update existing trip
   static Future<void> update({
@@ -117,6 +131,24 @@ class TripService {
       'updatedAt': FieldValue.serverTimestamp(),
     };
 
+    // fetch current doc to validate
+    final doc = await _col.doc(tripId).get();
+    final data = doc.data() ?? {};
+    final oldCapacity = (data['capacity'] as num?)?.toInt() ?? 0;
+    final bookedSeats = (data['bookedSeats'] as num?)?.toInt() ?? 0;
+
+    // ✅ only if capacity is being updated
+    if (capacity != null) {
+      if (capacity < bookedSeats) {
+        throw Exception(
+          "Capacity ($capacity) cannot be less than booked seats ($bookedSeats).",
+        );
+      }
+      updates['capacity'] = capacity;
+      updates['availableSeats'] = capacity - bookedSeats;
+    }
+
+    // core updates
     if (title != null) updates['title'] = title;
     if (description != null) updates['description'] = description;
     if (source != null) updates['source'] = source;
@@ -124,17 +156,20 @@ class TripService {
     if (startDate != null) updates['startDate'] = Timestamp.fromDate(startDate);
     if (endDate != null) updates['endDate'] = Timestamp.fromDate(endDate);
     if (price != null) updates['price'] = price;
-    if (capacity != null) updates['capacity'] = capacity;
+
+    // images
     if (imageUrl != null) updates['imageUrl'] = imageUrl;
     if (imagePublicId != null) updates['imagePublicId'] = imagePublicId;
     if (gallery != null) updates['gallery'] = gallery;
+
+    // hotel
     if (hotelName != null) updates['hotelName'] = hotelName;
-    if (hotelDescription != null) {
-      updates['hotelDescription'] = hotelDescription;
-    }
+    if (hotelDescription != null) updates['hotelDescription'] = hotelDescription;
     if (hotelMainImage != null) updates['hotelMainImage'] = hotelMainImage;
     if (hotelGallery != null) updates['hotelGallery'] = hotelGallery;
     if (hotelStars != null) updates['hotelStars'] = hotelStars;
+
+    // extra
     if (meals != null) updates['meals'] = meals;
     if (activities != null) updates['activities'] = activities;
     if (airportPickup != null) updates['airportPickup'] = airportPickup;
@@ -276,35 +311,51 @@ class TripService {
   }
 
   static Future<void> deleteTrip(String tripId) async {
-    final tripRef = _col.doc(tripId);
-    final bookingsQuery = _bookings.where('tripPackageId', isEqualTo: tripId);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception("Not logged in");
 
+    final tripRef = _col.doc(tripId);
+    final tripSnap = await tripRef.get();
+
+    if (!tripSnap.exists) throw Exception("Trip not found");
+
+    final tripData = tripSnap.data() as Map<String, dynamic>;
+    final createdBy = tripData['createdBy'];
+
+    // ✅ Check: only trip owner or admin should continue
+    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final userSnap = await userRef.get();
+    final Map<String, dynamic>? userData = userSnap.data();
+    final String? role = userData != null ? userData['role'] as String? : null;
+
+    if (user.uid != createdBy && role != "admin") {
+      throw Exception("Permission denied: only owner or admin can delete trip");
+    }
+
+    final bookingsQuery = _bookings.where('tripPackageId', isEqualTo: tripId);
     final feedbacksQuery = FirebaseFirestore.instance
         .collection('feedback')
-        .where('tripId', isEqualTo: tripId);
+        .where('tripPackageId', isEqualTo: tripId); // ⚠️ match rules: use tripPackageId not tripId
 
-    // Firestore batch for atomic operations
     final batch = FirebaseFirestore.instance.batch();
 
     try {
-      // 1. Delete all bookings related to the trip
+      // 1. Delete bookings
       final bookingsSnapshot = await bookingsQuery.get();
       for (final bookingDoc in bookingsSnapshot.docs) {
         batch.delete(bookingDoc.reference);
       }
 
-      // 2. Delete all feedback related to the trip
+      // 2. Delete feedbacks
       final feedbackSnapshot = await feedbacksQuery.get();
       for (final feedbackDoc in feedbackSnapshot.docs) {
         batch.delete(feedbackDoc.reference);
       }
 
-      // 3. Delete the trip document itself
+      // 3. Delete trip itself
       batch.delete(tripRef);
 
-      // Commit batch
       await batch.commit();
-
     } catch (e) {
       print("❌ Error deleting trip and related data: $e");
       rethrow;
