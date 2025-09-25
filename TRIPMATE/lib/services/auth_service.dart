@@ -1,13 +1,13 @@
 // lib/services/auth_service.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/user_model.dart'; // ✅ import your AppUser model
+import '../models/user_model.dart'; 
 
 class AuthService {
   static final _auth = FirebaseAuth.instance;
   static final _db = FirebaseFirestore.instance;
 
-  /// Sign up and create user profile in Firestore
+  
   static Future<AppUser> signUp({
     required String email,
     required String password,
@@ -30,7 +30,7 @@ class AuthService {
         'email': email,
         'name': displayName ?? '',
         'role': roleNormalized,
-        // customers auto-approved
+      
         'approved': roleNormalized == 'customer',
         'createdAt': FieldValue.serverTimestamp(),
       };
@@ -38,7 +38,7 @@ class AuthService {
 
       await _db.collection('users').doc(user.uid).set(profile);
 
-      // fetch back to return AppUser
+ 
       final snapshot = await _db.collection('users').doc(user.uid).get();
       return AppUser.fromDoc(snapshot);
     } on FirebaseAuthException catch (e) {
@@ -55,13 +55,13 @@ static Future<AppUser?> signInWithRole(String email, String password, String rol
     final user = credential.user;
 
     if (user != null) {
-      // 🔹 get user document reference
+     
       final docRef = _db.collection('users').doc(user.uid);
 
-      // 🔹 update last login
+      
       await docRef.update({'lastLogin': FieldValue.serverTimestamp()});
 
-      // 🔹 fetch updated user document
+   
       final updatedDoc = await docRef.get();
 
       final appUser = AppUser.fromDoc(updatedDoc);
@@ -82,13 +82,13 @@ static Future<AppUser?> signInWithRole(String email, String password, String rol
 
   static Future<void> signOut() => _auth.signOut();
 
-  /// Get AppUser profile by UID
+
   static Future<AppUser?> getProfile(String uid) async {
     final doc = await _db.collection('users').doc(uid).get();
     return doc.exists ? AppUser.fromDoc(doc) : null;
   }
 
-  /// Stream current logged-in AppUser
+ 
   static Stream<AppUser?> get currentUserStream {
     return _auth.authStateChanges().asyncMap((user) async {
       if (user == null) return null;
@@ -97,10 +97,10 @@ static Future<AppUser?> signInWithRole(String email, String password, String rol
     });
   }
 
-  /// Get current logged-in Firebase User
+
   static User? get firebaseUser => _auth.currentUser;
 
-  /// Get username by userId
+
   static Future<String> getUsername(String userId) async {
     try {
       final doc = await _db.collection('users').doc(userId).get();
