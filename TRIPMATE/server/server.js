@@ -44,7 +44,7 @@ app.post('/verify_payment', async (req, res) => {
     const expectedSignature = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET).update(body).digest('hex');
 
     if (expectedSignature === razorpay_signature) {
-      // mark booking paid in Firestore
+     
       await db.collection('bookings').doc(bookingId).update({
         status: 'paid',
         paidAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -53,7 +53,7 @@ app.post('/verify_payment', async (req, res) => {
       });
       return res.json({ success: true });
     } else {
-      // signature mismatch
+     
       return res.status(400).json({ success: false, message: 'Invalid signature' });
     }
   } catch (err) {
@@ -64,3 +64,4 @@ app.post('/verify_payment', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('Server running on port', PORT));
+
